@@ -105,12 +105,34 @@ export default async function AccountsPage({
     revalidatePath('/accounts');
   }
 
+  /**
+   * What an account actually is, not what it claims.
+   *
+   * `role` is a flag the app sets and a renter can end up carrying without ever
+   * posting. Owning listings is the fact that matters, so a host is someone
+   * with at least one; anyone marked lister but holding none is shown as
+   * intending to host, which is who the verification queue exists to serve.
+   */
+  const accountType = (id: string, role: string | null) => {
+    if ((listingsByOwner.get(id) ?? 0) > 0) return 'host' as const;
+    if (role === 'lister') return 'host_pending' as const;
+    return 'renter' as const;
+  };
+
   const hosts = profiles.rows.filter((row) => (listingsByOwner.get(row.id) ?? 0) > 0);
+  const wouldBeHosts = profiles.rows.filter(
+    (row) => accountType(row.id, row.role) === 'host_pending'
+  );
 
   const visible = profiles.rows.filter((row) => {
-    if (filter === 'verified' && !row.verified) return false;
+    const type = accountType(row.id, row.role);
+
     if (filter === 'unverified' && row.verified) return false;
-    if (filter === 'hosts' && (listingsByOwner.get(row.id) ?? 0) === 0) return false;
+    if (filter === 'hosts' && type === 'renter') return false;
+    if (filter === 'renters' && type !== 'renter') return false;
+    // Cannot post: wants to host but has not been verified, so the app blocks
+    // them. This is the queue that costs the business listings.
+    if (filter === 'blocked' && !(type === 'host_pending' && !row.verified)) return false;
 
     if (!search) return true;
     return `${row.full_name ?? ''} ${row.email ?? ''} ${row.id}`.toLowerCase().includes(search);
@@ -120,7 +142,7 @@ export default async function AccountsPage({
     <Shell badges={{ '/accounts': profiles.rows.filter((row) => !row.verified).length }}>
       <PageHead
         title="Accounts"
-        description="Verification, roles and host status. Verification gates listing and payout in the app, so this is the control that matters most."
+        description="Who each account is, and whether they can post. Verification gates posting and payouts in the app, so it is the control that matters most."
       />
 
       {profiles.error ? (
@@ -129,26 +151,25 @@ export default async function AccountsPage({
         </Notice>
       ) : null}
 
-      {/* The app collects identity documents but there is nowhere to store or
-          review them, so verification here is a judgement, not a checked fact. */}
-      <Notice tone="warn" title="No document review yet">
-        The app asks hosts to upload ID for verification, but there is no table storing those
-        submissions, so they cannot be reviewed here. Verifying an account below is a manual
-        decision, not a confirmation that documents were checked.
+      {/* Toggling verification here bypasses the documents entirely, so the
+          reviewed route is pointed at first. */}
+      <Notice tone="info" title="Prefer the review queue">
+        Verifications carries the submitted documents and records who decided what. Toggling the
+        badge below overrides that without looking at anything, so keep it for corrections.
       </Notice>
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric label="Accounts" value={profiles.rows.length} />
-        <Metric label="Hosts" value={hosts.length} hint="Have at least one listing" />
+        <Metric label="Hosts" value={hosts.length} hint="Own at least one listing" />
         <Metric
           label="Verified"
           value={profiles.rows.filter((row) => row.verified).length}
           hint={`${profiles.rows.filter((row) => !row.verified).length} awaiting`}
         />
         <Metric
-          label="Unattributed listings"
-          value={listings.rows.filter((row) => !row.owner_profile_id).length}
-          hint="No owner set"
+          label="Blocked from posting"
+          value={wouldBeHosts.filter((row) => !row.verified).length}
+          hint="Want to host, not yet verified"
         />
       </div>
 
@@ -167,7 +188,7 @@ export default async function AccountsPage({
       </form>
 
       <div className="btn-row" style={{ marginBottom: 14 }}>
-        {['all', 'unverified', 'verified', 'hosts'].map((option) => (
+        {['all', 'renters', 'hosts', 'unverified', 'blocked'].map((option) => (
           <a
             key={option}
             href={`/accounts?filter=${option}${search ? `&q=${encodeURIComponent(search)}` : ''}`}
@@ -177,7 +198,7 @@ export default async function AccountsPage({
         ))}
       </div>
 
-      <Table head={['Account', 'Activity', 'Value', 'Role', 'Verification', 'Controls']}>
+      <Table head={['Account', 'Type', 'Activity', 'Value', 'Verification', 'Controls']}>
         {visible.length === 0 ? (
           <Empty>No accounts match.</Empty>
         ) : (
@@ -192,6 +213,25 @@ export default async function AccountsPage({
                   <div className="mono">{row.email ?? shortId(row.id, 16)}</div>
                   <div className="mono">joined {ago(row.created_at)}</div>
                 </td>
+                <td>
+                  {(() => {
+                    const type = accountType(row.id, row.role);
+                    if (type === 'host') return <Badge value="host" tone="green" />;
+                    if (type === 'host_pending')
+                      return <Badge value="wants to host" tone="amber" />;
+                    return <Badge value="renter" tone="grey" />;
+                  })()}
+                  {row.host_type ? (
+                    <div style={{ marginTop: 4 }}>
+                      <Badge value={row.host_type} tone="blue" />
+                    </div>
+                  ) : null}
+                  {accountType(row.id, row.role) !== 'renter' && !row.verified ? (
+                    <div className="mono" style={{ color: 'var(--amber)', marginTop: 4 }}>
+                      cannot post
+                    </div>
+                  ) : null}
+                </td>
                 <td className="dim">
                   {listingCount} listing(s)
                   <div className="mono">{bookingCount} booking(s) made</div>
@@ -201,14 +241,6 @@ export default async function AccountsPage({
                   <div className="mono" style={{ fontWeight: 500 }}>
                     {kes(requestedByProfile.get(row.id) ?? 0)} requested
                   </div>
-                </td>
-                <td>
-                  <Badge value={row.role ?? 'renter'} tone="grey" />
-                  {row.host_type ? (
-                    <div style={{ marginTop: 4 }}>
-                      <Badge value={row.host_type} tone="blue" />
-                    </div>
-                  ) : null}
                 </td>
                 <td>
                   <Badge
