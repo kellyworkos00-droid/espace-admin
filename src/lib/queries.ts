@@ -68,6 +68,42 @@ export type ProfileRow = {
   created_at?: string | null;
 };
 
+export type VerificationRow = {
+  id: string;
+  profile_id: string;
+  legal_name: string;
+  doc_type: string;
+  doc_number: string | null;
+  front_url: string | null;
+  back_url: string | null;
+  selfie_url: string | null;
+  status: string;
+  reviewer_note: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+};
+
+/** Review queue, oldest first: the longest wait is dealt with first. */
+export async function getVerifications(status?: string) {
+  const filter = status && status !== 'all' ? `&status=eq.${status}` : '';
+  return sb<VerificationRow>('verification_requests', {
+    query: `select=*&order=submitted_at.asc&limit=200${filter}`,
+  });
+}
+
+/**
+ * A viewable link for a document in the private bucket.
+ *
+ * The bucket is private because these are identity papers, so the reviewer's
+ * own key is what authorises the read. Passing the key in the URL keeps this to
+ * a plain link, and the console is already behind a login.
+ */
+export function signedDocUrl(path: string) {
+  const base = process.env.SUPABASE_URL ?? '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  return `${base}/storage/v1/object/authenticated/verification-docs/${path}?apikey=${key}`;
+}
+
 /**
  * The payout queue.
  *

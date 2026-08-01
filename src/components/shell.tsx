@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 
 const NAV = [
   { href: '/', label: 'Overview' },
+  { href: '/verifications', label: 'Verifications' },
   { href: '/accounts', label: 'Accounts' },
   { href: '/listings', label: 'Listings' },
   { href: '/bookings', label: 'Bookings' },
@@ -16,7 +17,7 @@ const NAV = [
 /**
  * Console shell.
  *
- * Accounts sits second because verification is the console's main job: it
+ * Verifications sits second because it is the console's main job: the badge
  * gates listing and payout in the app, and only a person can grant it.
  * Finance and Bookings are reporting -- escrow release belongs to the renter,
  * in the app, not to anyone here.
