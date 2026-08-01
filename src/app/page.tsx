@@ -15,10 +15,10 @@ export default async function OverviewPage() {
   const queue = payouts.rows.filter((row) => row.status === 'pending' || row.status === 'processing');
 
   return (
-    <Shell badges={{ '/payouts': metrics.queuedPayoutCount }}>
+    <Shell badges={{ '/payouts': metrics.queuedPayoutCount, '/accounts': metrics.unverifiedCount }}>
       <PageHead
         title="Overview"
-        description="Money in escrow, money waiting to go out, and anything that needs a person."
+        description="Account verification waiting on you, the financial position, and anything blocking the platform."
       />
 
       {error ? (
@@ -49,20 +49,24 @@ export default async function OverviewPage() {
 
       <div className="grid cols-4" style={{ marginBottom: 14 }}>
         <Metric
+          label="Awaiting verification"
+          value={metrics.unverifiedCount}
+          hint={`${metrics.profileCount} account(s) total`}
+        />
+        <Metric
           label="Held in escrow"
           value={kes(metrics.heldKes)}
-          hint={`${metrics.heldCount} payment(s) awaiting release`}
+          hint={`${metrics.heldCount} payment(s), released by renters in the app`}
         />
         <Metric
           label="Payouts queued"
           value={kes(metrics.queuedPayoutKes)}
           hint={`${metrics.queuedPayoutCount} host(s) waiting`}
         />
-        <Metric label="Released to hosts" value={kes(metrics.releasedKes)} hint="Lifetime" />
         <Metric
           label="Live listings"
           value={metrics.listingCount}
-          hint={`${metrics.bookingCount} bookings · ${metrics.profileCount} users`}
+          hint={`${metrics.bookingCount} booking(s) · ${kes(metrics.releasedKes)} released lifetime`}
         />
       </div>
 

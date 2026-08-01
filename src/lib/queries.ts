@@ -64,6 +64,7 @@ export type ProfileRow = {
   email: string | null;
   role: string | null;
   verified: boolean | null;
+  host_type?: string | null;
   created_at?: string | null;
 };
 
@@ -141,6 +142,7 @@ export async function getOverview() {
       listingCount: listings.rows.length,
       bookingCount: bookings.rows.length,
       profileCount: profiles.rows.length,
+      unverifiedCount: profiles.rows.filter((row) => !row.verified).length,
       orphanListings: orphanListings.length,
       orphanBookings: orphanBookings.length,
       unattributedPayments: unattributedPayments.length,

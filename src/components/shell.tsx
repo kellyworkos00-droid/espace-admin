@@ -6,19 +6,20 @@ import { ReactNode } from 'react';
 
 const NAV = [
   { href: '/', label: 'Overview' },
-  { href: '/payouts', label: 'Payouts' },
-  { href: '/payments', label: 'Escrow' },
-  { href: '/bookings', label: 'Bookings' },
+  { href: '/accounts', label: 'Accounts' },
   { href: '/listings', label: 'Listings' },
-  { href: '/users', label: 'Users' },
+  { href: '/bookings', label: 'Bookings' },
+  { href: '/finance', label: 'Finance' },
+  { href: '/payouts', label: 'Payouts' },
 ] as const;
 
 /**
  * Console shell.
  *
- * Payouts sit second, directly under Overview, because they are the only queue
- * where money waits on a human. Everything below is oversight; that one is
- * work.
+ * Accounts sits second because verification is the console's main job: it
+ * gates listing and payout in the app, and only a person can grant it.
+ * Finance and Bookings are reporting -- escrow release belongs to the renter,
+ * in the app, not to anyone here.
  */
 export function Shell({
   children,
