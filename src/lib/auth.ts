@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHash, timingSafeEqual } from 'crypto';
 
@@ -58,12 +58,33 @@ export function credentialsMatch(email: string, password: string) {
   return emailOk && passwordOk;
 }
 
+/**
+ * Whether this request actually arrived over HTTPS.
+ *
+ * Checked per request rather than assumed from NODE_ENV. A production build
+ * served over plain HTTP -- `npm run start`, or reaching the machine on its LAN
+ * address -- would otherwise set a Secure cookie that the browser silently
+ * refuses to store, so signing in appeared to work and then bounced straight
+ * back to the login page.
+ *
+ * Behind Vercel and most proxies the original scheme survives in
+ * x-forwarded-proto; the direct protocol is only visible when there is no proxy.
+ */
+async function isSecureRequest() {
+  const store = await headers();
+  const forwarded = store.get('x-forwarded-proto');
+  if (forwarded) return forwarded.split(',')[0].trim() === 'https';
+  return (store.get('referer') ?? '').startsWith('https://');
+}
+
 export async function createSession() {
   const store = await cookies();
   store.set(COOKIE, expectedToken(), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    // Secure only when the connection really is HTTPS, so it is enforced in
+    // deployment without breaking a local or LAN-served build.
+    secure: await isSecureRequest(),
     path: '/',
     maxAge: 60 * 60 * 8,
   });
