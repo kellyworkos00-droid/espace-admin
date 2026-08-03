@@ -41,6 +41,9 @@ export type BookingRow = {
   amount_kes: number | null;
   check_in_date: string | null;
   check_out_date: string | null;
+  /** What the app actually writes; the check_* pair exists but is left null. */
+  move_in_date?: string | null;
+  checkout_date?: string | null;
   created_at: string;
 };
 
@@ -53,6 +56,8 @@ export type ListingRow = {
   monthly_rent_kes: number | null;
   nightly_rate_kes: number | null;
   verified: boolean | null;
+  /** 'long_stay' | 'short_stay'. Decides whether a home leaves the feed when let. */
+  stay_type?: string | null;
   is_paused?: boolean | null;
   is_booked?: boolean | null;
   created_at?: string | null;

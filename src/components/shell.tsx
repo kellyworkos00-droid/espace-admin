@@ -6,6 +6,7 @@ import { ReactNode } from 'react';
 
 const NAV = [
   { href: '/', label: 'Overview' },
+  { href: '/health', label: 'Health' },
   { href: '/verifications', label: 'Verifications' },
   { href: '/accounts', label: 'Accounts' },
   { href: '/listings', label: 'Listings' },
@@ -17,8 +18,11 @@ const NAV = [
 /**
  * Console shell.
  *
- * Verifications sits second because it is the console's main job: the badge
- * gates listing and payout in the app, and only a person can grant it.
+ * Health sits second because the faults it lists are the ones nothing else
+ * will ever tell you about; the rest of the console looks healthy while they
+ * are happening. Verifications follows as the console's main recurring job:
+ * the badge gates listing and payout in the app, and only a person can grant
+ * it.
  * Finance and Bookings are reporting -- escrow release belongs to the renter,
  * in the app, not to anyone here.
  */

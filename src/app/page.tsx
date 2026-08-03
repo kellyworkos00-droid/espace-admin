@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Shell } from '@/components/shell';
 import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { runHealthChecks } from '@/lib/health';
 import { getOverview } from '@/lib/queries';
 import { hasServiceRole } from '@/lib/supabase';
 
@@ -11,11 +12,24 @@ export const dynamic = 'force-dynamic';
 export default async function OverviewPage() {
   await requireAdmin();
 
-  const { metrics, payouts, payments, error } = await getOverview();
+  const { metrics, payouts, payments, bookings, listings, profiles, error } = await getOverview();
+
+  const health = runHealthChecks({
+    listings: listings.rows,
+    bookings: bookings.rows,
+    payments: payments.rows,
+    payouts: payouts.rows,
+    profiles: profiles.rows,
+  });
   const queue = payouts.rows.filter((row) => row.status === 'pending' || row.status === 'processing');
 
   return (
-    <Shell badges={{ '/payouts': metrics.queuedPayoutCount, '/accounts': metrics.unverifiedCount }}>
+    <Shell
+      badges={{
+        '/payouts': metrics.queuedPayoutCount,
+        '/accounts': metrics.unverifiedCount,
+        '/health': health.failing.length,
+      }}>
       <PageHead
         title="Overview"
         description="Account verification waiting on you, the financial position, and anything blocking the platform."
@@ -34,14 +48,23 @@ export default async function OverviewPage() {
         </Notice>
       ) : null}
 
-      {/* These three break payouts silently, so they are stated before any
-          headline figure that looks healthy. */}
-      {metrics.orphanListings > 0 || metrics.orphanBookings > 0 ? (
-        <Notice tone="error" title="Payouts cannot complete">
-          {metrics.orphanListings} listing(s) have no owner and {metrics.orphanBookings} booking(s)
-          record no host. Escrow on those bookings has nobody to pay.{' '}
-          <Link href="/listings" style={{ textDecoration: 'underline', fontWeight: 800 }}>
-            Repair them
+      {/* Stated before any headline figure, because these are the faults that
+          let a healthy-looking number sit on top of money nobody can be paid. */}
+      {health.failing.length > 0 ? (
+        <Notice
+          tone={health.worst === 'medium' ? 'warn' : 'error'}
+          title={
+            health.counts.critical > 0
+              ? `${health.counts.critical} fault(s) putting money at risk`
+              : `${health.failing.length} thing(s) need attention`
+          }>
+          {health.failing
+            .slice(0, 3)
+            .map((check) => `${check.title.toLowerCase()} (${check.items.length})`)
+            .join(', ')}
+          {health.failing.length > 3 ? `, and ${health.failing.length - 3} more` : ''}.{' '}
+          <Link href="/health" style={{ textDecoration: 'underline', fontWeight: 800 }}>
+            Review them
           </Link>
           .
         </Notice>
