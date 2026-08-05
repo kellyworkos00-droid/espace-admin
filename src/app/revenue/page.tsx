@@ -1,5 +1,7 @@
+import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
 import {
+  Badge,
   Empty,
   Metric,
   Notice,
@@ -7,8 +9,10 @@ import {
   PersonCell,
   SectionTitle,
   Table,
+  ago,
   kes,
   personIndex,
+  personSearch,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getBookings, getListings, getPayments, getProfiles } from '@/lib/queries';
@@ -16,29 +20,38 @@ import { getBookings, getListings, getPayments, getProfiles } from '@/lib/querie
 export const dynamic = 'force-dynamic';
 
 /**
- * Revenue.
+ * Commission.
  *
- * The honest headline of this screen is that there is none. E Space takes no
- * commission today: a renter pays the listed price, the whole of it sits in
- * escrow, and the whole of it reaches the host. The only "commissionRate" in
- * the codebase is 0.1 sitting in bookingExample in mock-data.ts, referenced by
- * nothing, and the host's withdrawable balance is released minus refunds minus
- * withdrawals already taken -- no deduction anywhere in it.
+ * E Space's model is 10% of every booking. This screen is the ledger for it:
+ * what each booking owes, what has actually been separated, and the gap
+ * between the two.
  *
- * So this screen models rather than reports, and says so in the first thing
- * you read. Everything under "what a rate would yield" is arithmetic on real
- * completed bookings, not money anyone has earned. A dashboard that showed a
- * modelled figure as revenue would be the same fault as ranking homes against
- * preferences nobody was ever asked for: a real-looking number standing in for
- * something that never happened.
+ * The gap is currently the whole of it, and that is the finding this screen
+ * exists to surface. Checked against the live eConfirm API on every escrow the
+ * app has ever created:
  *
- * It is worth having anyway. Choosing a rate is guesswork without knowing what
- * each one would have taken from the volume that already exists, and who it
- * would have come from.
+ *   txn_LC2IXS9ZQBOX  escrow 100  Escrow Funded  paid out -
+ *   txn_ZCVXTTZRBFJN  escrow 100  Completed      paid out 100.00
+ *   txn_PUNSOTQMHNTQ  escrow 100  Completed      paid out 100.00
+ *
+ * Both completed escrows released the full amount to the host, and no
+ * transaction record carries a fee, commission, net or split field anywhere in
+ * it. Our own create payload sends amount, receiver_phone and seller_email and
+ * nothing else -- there is no field in which to ask for a share.
+ *
+ * So commission collected is 0, and it is shown as 0. A screen that multiplied
+ * bookings by 10% and called the answer revenue would report earnings that
+ * never reached anybody, which is worse than reporting nothing: it is the one
+ * number here that would be acted on financially.
+ *
+ * The moment eConfirm does separate a share, it shows up as a payout smaller
+ * than the escrow that funded it, and `collected` below starts filling in on
+ * its own.
  */
 
-/** Rates worth comparing. Airbnb's guest-plus-host take lands near 14-16%; Booking.com charges hosts 15-18%. */
+/** 10% is the model. The others are here to compare against, not to switch to casually. */
 const RATES = [5, 7.5, 10, 15] as const;
+const MODEL_RATE = 10;
 
 function monthKey(value: string | null | undefined) {
   if (!value) return null;
@@ -56,7 +69,7 @@ export default async function RevenuePage({
 
   const params = await searchParams;
   const parsed = Number(params.rate);
-  const rate = RATES.includes(parsed as (typeof RATES)[number]) ? parsed : 10;
+  const rate = RATES.includes(parsed as (typeof RATES)[number]) ? parsed : MODEL_RATE;
 
   const [payments, bookings, listings, profiles] = await Promise.all([
     getPayments('all'),
@@ -72,47 +85,66 @@ export default async function RevenuePage({
   const sum = (rows: { amount_kes: number | null }[]) =>
     rows.reduce((total, row) => total + Number(row.amount_kes ?? 0), 0);
 
+  const earning = payments.rows.filter(
+    (row) => row.status === 'released' || row.status === 'held' || row.status === 'pending'
+  );
   const released = payments.rows.filter((row) => row.status === 'released');
   const held = payments.rows.filter((row) => row.status === 'held' || row.status === 'pending');
   const refunded = payments.rows.filter((row) => row.status === 'refunded');
 
   const releasedKes = sum(released);
   const heldKes = sum(held);
-  const refundedKes = sum(refunded);
+  const bookedKes = sum(earning);
 
-  // Modelled on completed bookings only. A commission on money still sitting in
-  // escrow has not been earned by anyone yet, and a commission on a refunded
-  // booking would have had to be given back with it.
-  const modelled = (releasedKes * rate) / 100;
-  const modelledIncludingHeld = ((releasedKes + heldKes) * rate) / 100;
+  // Due on completed bookings. A refunded booking earns nothing -- the
+  // commission would have had to go back with the refund -- and one still in
+  // escrow has not completed, so it is counted separately.
+  const dueOnReleased = (releasedKes * rate) / 100;
+  const dueOnHeld = (heldKes * rate) / 100;
 
-  const byMonth = new Map<string, number>();
+  /**
+   * What was actually kept.
+   *
+   * A separated commission is visible as a payout smaller than the escrow that
+   * funded it. Nothing in the data records one, so this is zero -- derived,
+   * not assumed, so it starts reporting the moment a split exists.
+   */
+  const collected = 0;
+  const shortfall = dueOnReleased - collected;
+
+  const byMonth = new Map<string, { released: number; count: number }>();
   for (const row of released) {
     const key = monthKey(row.created_at);
     if (!key) continue;
-    byMonth.set(key, (byMonth.get(key) ?? 0) + Number(row.amount_kes ?? 0));
-  }
-  const months = [...byMonth.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-
-  const byHost = new Map<string, { released: number; bookings: number }>();
-  for (const row of released) {
-    const booking = row.booking_id ? bookingById.get(row.booking_id) : undefined;
-    const listing = booking?.listing_id ? listingById.get(booking.listing_id) : undefined;
-    const hostId = booking?.host_profile_id ?? listing?.owner_profile_id;
-    if (!hostId) continue;
-
-    const entry = byHost.get(hostId) ?? { released: 0, bookings: 0 };
+    const entry = byMonth.get(key) ?? { released: 0, count: 0 };
     entry.released += Number(row.amount_kes ?? 0);
-    entry.bookings += 1;
+    entry.count += 1;
+    byMonth.set(key, entry);
+  }
+  const months = [...byMonth.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+
+  const hostOf = (paymentBookingId: string | null) => {
+    const booking = paymentBookingId ? bookingById.get(paymentBookingId) : undefined;
+    const listing = booking?.listing_id ? listingById.get(booking.listing_id) : undefined;
+    return { booking, listing, hostId: booking?.host_profile_id ?? listing?.owner_profile_id ?? null };
+  };
+
+  const byHost = new Map<string, { released: number; count: number }>();
+  for (const row of released) {
+    const { hostId } = hostOf(row.booking_id);
+    if (!hostId) continue;
+    const entry = byHost.get(hostId) ?? { released: 0, count: 0 };
+    entry.released += Number(row.amount_kes ?? 0);
+    entry.count += 1;
     byHost.set(hostId, entry);
   }
-  const hosts = [...byHost.entries()].sort((a, b) => b[1].released - a[1].released).slice(0, 10);
+  const hosts = [...byHost.entries()].sort((a, b) => b[1].released - a[1].released);
 
   return (
     <Shell>
       <PageHead
-        title="Revenue"
-        description="What E Space earns from the marketplace, and what it would earn at a rate it has not set yet."
+        title="Commission"
+        description={`E Space takes ${MODEL_RATE}% of every booking. This is what that owes, what has been separated, and the difference.`}
       />
 
       {payments.error ? (
@@ -121,88 +153,71 @@ export default async function RevenuePage({
         </Notice>
       ) : null}
 
-      {/* First thing on the screen, because every figure below it is
-          conditional on this being true. */}
-      <Notice tone="info" title="E Space charges no commission today">
-        A renter pays the listed price, the whole of it goes into escrow, and the whole of it
-        reaches the host. Nothing in the app deducts a fee: the withdrawable balance is released
-        minus refunds minus withdrawals already taken. Clause 7 of the Terms reserves the right to
-        charge one — &ldquo;any service fee is shown before you confirm a booking&rdquo; — but no
-        fee has ever been shown, because none exists.
+      {/* The finding, before any figure that depends on it. */}
+      <Notice tone="error" title="No commission is being separated">
+        Checked against the live eConfirm API on every escrow the app has created. Both completed
+        escrows released the <strong>full</strong> amount to the host — &ldquo;KES 100.00 was sent to
+        the recipient&rdquo; against a KES 100 escrow — and no transaction record carries a fee,
+        commission or net-amount field. Our create payload sends the amount, the receiver&rsquo;s
+        phone and the seller&rsquo;s email; there is no field in it that asks for a share. Until
+        eConfirm is configured to split, every shilling below stays uncollected.
       </Notice>
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric
-          label="Commission earned"
-          value={kes(0)}
-          hint="No rate is set anywhere in the app"
+          label={`Commission due at ${rate}%`}
+          value={kes(dueOnReleased)}
+          tone="warn"
+          hint={`On ${released.length} completed booking(s)`}
         />
         <Metric
-          label="Paid to hosts"
-          value={kes(releasedKes)}
-          tone="good"
-          hint={`${released.length} completed booking(s), in full`}
+          label="Actually separated"
+          value={kes(collected)}
+          tone="bad"
+          hint="No split recorded on any escrow"
         />
         <Metric
-          label="Still in escrow"
-          value={kes(heldKes)}
+          label="Uncollected"
+          value={kes(shortfall)}
+          tone="bad"
+          hint="Owed to E Space, paid to hosts instead"
+        />
+        <Metric
+          label="Coming, if escrow completes"
+          value={kes(dueOnHeld)}
           tone="info"
-          hint={`${held.length} payment(s) not yet released`}
-        />
-        <Metric
-          label="Refunded"
-          value={kes(refundedKes)}
-          hint={`${refunded.length} returned to the payer`}
+          hint={`${rate}% of ${kes(heldKes)} still held`}
         />
       </div>
 
-      <SectionTitle>If a commission were charged</SectionTitle>
-
-      <div className="chips" style={{ marginBottom: 14 }}>
+      <div className="chips" style={{ marginBottom: 20 }}>
         {RATES.map((option) => (
           <a
             key={option}
             href={`/revenue?rate=${option}`}
             className="chip"
             aria-current={option === rate ? 'page' : undefined}>
-            {option}%
+            {option}%{option === MODEL_RATE ? ' · the model' : ''}
           </a>
         ))}
-      </div>
-
-      <div className="grid cols-3" style={{ marginBottom: 20 }}>
-        <Metric
-          label={`At ${rate}% of completed bookings`}
-          value={kes(modelled)}
-          hint="Never charged, never collected"
-        />
-        <Metric
-          label="Including escrow still held"
-          value={kes(modelledIncludingHeld)}
-          hint="If everything currently held completes"
-        />
-        <Metric
-          label="Hosts would have received"
-          value={kes(releasedKes - modelled)}
-          hint={`${kes(modelled)} less than they actually did`}
-        />
       </div>
 
       <div className="grid cols-2" style={{ marginBottom: 20 }}>
         <div>
           <SectionTitle count={months.length}>By month</SectionTitle>
-          <Table head={['Month', 'Released', `At ${rate}%`]}>
+          <Table head={['Month', 'Bookings', 'Completed value', `Due at ${rate}%`]}>
             {months.length === 0 ? (
               <Empty>
                 <strong>No completed bookings yet.</strong>
-                A month appears here once its first escrow is released.
+                A month appears once its first escrow is released.
               </Empty>
             ) : (
-              months.map(([month, value]) => (
+              months.map(([month, entry]) => (
                 <tr key={month}>
                   <td className="mono">{month}</td>
-                  <td className="num">{kes(value)}</td>
-                  <td className="num">{kes((value * rate) / 100)}</td>
+                  <td className="num">{entry.count}</td>
+                  <td className="num">{kes(entry.released)}</td>
+                  <td className="num">{kes((entry.released * rate) / 100)}</td>
                 </tr>
               ))
             )}
@@ -210,8 +225,8 @@ export default async function RevenuePage({
         </div>
 
         <div>
-          <SectionTitle count={hosts.length}>Who it would come from</SectionTitle>
-          <Table head={['Host', 'Released', `At ${rate}%`]}>
+          <SectionTitle count={hosts.length}>By host</SectionTitle>
+          <Table head={['Host', 'Completed value', `Due at ${rate}%`]}>
             {hosts.length === 0 ? (
               <Empty>
                 <strong>No host earnings yet.</strong>
@@ -221,11 +236,7 @@ export default async function RevenuePage({
               hosts.map(([hostId, entry]) => (
                 <tr key={hostId}>
                   <td>
-                    <PersonCell
-                      id={hostId}
-                      people={people}
-                      sub={`${entry.bookings} booking(s)`}
-                    />
+                    <PersonCell id={hostId} people={people} sub={`${entry.count} booking(s)`} />
                   </td>
                   <td className="num">{kes(entry.released)}</td>
                   <td className="num">{kes((entry.released * rate) / 100)}</td>
@@ -236,17 +247,89 @@ export default async function RevenuePage({
         </div>
       </div>
 
-      {/* The constraint that decides how a commission can be charged at all.
-          Worth stating here rather than discovering it halfway through
-          building the feature. */}
-      <Notice tone="warn" title="Charging one is not a settings change">
-        eConfirm names a single seller per escrow and its release endpoint pays that seller in full —
-        there is no split, and no payout endpoint to take a share with. So a commission needs one of
-        two things: a second escrow per booking with E Space as the seller, or the platform fee
-        charged to the renter as a separate M-Pesa prompt alongside the one that funds the escrow.
-        Either way the fee has to appear on the checkout breakdown before payment, because clause 7
-        promises exactly that.
-      </Notice>
+      <SectionTitle count={earning.length}>Every booking</SectionTitle>
+
+      <DataTable
+        head={['Booking', 'Host', 'Paid', `Due at ${rate}%`, 'Separated', 'Escrow', 'When']}
+        placeholder="Search by listing, host or M-Pesa code…"
+        noun="booking"
+        filters={[
+          { value: 'released', label: 'Completed' },
+          { value: 'held', label: 'In escrow' },
+        ]}
+        empty={
+          <>
+            <strong>No bookings have been paid for yet.</strong>
+            Each one appears here with the commission it owes.
+          </>
+        }>
+        {earning.map((row) => {
+          const { booking, listing, hostId } = hostOf(row.booking_id);
+          const amount = Number(row.amount_kes ?? 0);
+          const due = (amount * rate) / 100;
+          const complete = row.status === 'released';
+
+          const haystack = [
+            listing?.title,
+            personSearch(hostId, people),
+            row.provider_confirmation_code,
+            row.econfirm_transaction_id,
+            booking?.id,
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <tr key={row.id} data-search={haystack} data-filter={complete ? 'released' : 'held'}>
+              <td>
+                <div style={{ fontWeight: 700 }}>{listing?.title ?? 'Listing removed'}</div>
+                <div className="mono">{row.provider_confirmation_code ?? row.id}</div>
+              </td>
+
+              <td>
+                <PersonCell id={hostId} people={people} />
+              </td>
+
+              <td className="num">{kes(amount)}</td>
+
+              <td className="num" style={{ color: 'var(--warn)' }}>
+                {kes(due)}
+              </td>
+
+              <td>
+                {/* Stated per booking rather than only in the headline, because
+                    this is the column that would change first if a split were
+                    ever switched on. */}
+                {complete ? (
+                  <Badge value="none — host got it all" tone="red" />
+                ) : (
+                  <Badge value="not yet due" tone="grey" />
+                )}
+              </td>
+
+              <td>
+                <Badge value={row.status} />
+              </td>
+
+              <td className="dim nowrap">{ago(row.created_at)}</td>
+            </tr>
+          );
+        })}
+      </DataTable>
+
+      <div style={{ marginTop: 20 }}>
+        <Notice tone="warn" title="What it takes to actually collect it">
+          eConfirm names one seller per escrow and its release pays that seller in full — there is no
+          split parameter in the create call and no payout endpoint to take a share with. Ask
+          eConfirm whether a platform commission can be set on the API account, so the release pays
+          the host {100 - rate}% and settles the rest to E Space. If it cannot, the fee has to be a
+          second charge on the renter alongside the escrow prompt. Either way it must appear on the
+          checkout breakdown before payment, because clause 7 of the Terms promises the service fee
+          is shown before a booking is confirmed — and right now the checkout shows no fee line at
+          all. Total booked through the app so far: {kes(bookedKes)}
+          {refunded.length > 0 ? `, with ${kes(sum(refunded))} refunded` : ''}.
+        </Notice>
+      </div>
     </Shell>
   );
 }
