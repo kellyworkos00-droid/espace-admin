@@ -13,6 +13,7 @@ import {
   IconMessages,
   IconOverview,
   IconPayouts,
+  IconRevenue,
   IconReviews,
   IconVerify,
 } from './icons';
@@ -26,6 +27,10 @@ import { ThemeToggle } from './theme-toggle';
  * accounts are things you go and look at, and messages and reviews are what
  * you read when deciding a dispute. A queue you must act on and a table you
  * merely consult deserve to be visibly different kinds of thing.
+ *
+ * Finance sat under Evidence, which it never was: it reports on money rather
+ * than telling you what two people said to each other. It now sits with
+ * Revenue, which is the screen that says how little of that money is ours.
  *
  * Needs attention comes first and stays first. The faults under Health are the
  * ones nothing else will ever tell you about -- the rest of the console looks
@@ -54,11 +59,17 @@ const GROUPS = [
     ],
   },
   {
+    title: 'Money',
+    items: [
+      { href: '/finance', label: 'Finance', Icon: IconFinance },
+      { href: '/revenue', label: 'Revenue', Icon: IconRevenue },
+    ],
+  },
+  {
     title: 'Evidence',
     items: [
       { href: '/messages', label: 'Messages', Icon: IconMessages },
       { href: '/reviews', label: 'Reviews', Icon: IconReviews },
-      { href: '/finance', label: 'Finance', Icon: IconFinance },
     ],
   },
 ] as const;

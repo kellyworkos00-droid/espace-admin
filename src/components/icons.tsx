@@ -121,6 +121,14 @@ export function IconReviews(p: IconProps) {
   );
 }
 
+export function IconRevenue(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+    </Svg>
+  );
+}
+
 export function IconSearch(p: IconProps) {
   return (
     <Svg {...p}>
