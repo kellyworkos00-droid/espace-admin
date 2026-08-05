@@ -142,6 +142,62 @@ export async function getProfiles() {
   return sb<ProfileRow>('profiles', { query: 'select=*&order=id.asc&limit=300' });
 }
 
+export type MessageRow = {
+  id: string;
+  thread_key: string | null;
+  booking_id: string | null;
+  listing_id?: string | null;
+  sender_profile_id: string | null;
+  recipient_profile_id: string | null;
+  body: string | null;
+  is_read: boolean | null;
+  sent_at: string;
+};
+
+export type ReviewRow = {
+  id: string;
+  listing_id: string | null;
+  reviewer_profile_id: string | null;
+  booking_id: string | null;
+  rating_overall: number | null;
+  rating_cleanliness: number | null;
+  rating_accuracy: number | null;
+  rating_communication: number | null;
+  rating_location: number | null;
+  rating_value: number | null;
+  comment: string | null;
+  host_response: string | null;
+  host_response_at: string | null;
+  created_at: string | null;
+};
+
+/**
+ * Conversations, newest first.
+ *
+ * The Terms tell a renter that a refund request is reviewed "against the
+ * listing and the messages between you". Until now the console could not read
+ * a single message, so that promise had no way of being kept -- whoever
+ * handled a dispute was deciding on one side's account of it.
+ *
+ * Ordered ascending within a thread by the screen that renders it; ascending
+ * here too so a thread reads top to bottom the way it was written.
+ */
+export async function getMessages() {
+  return sb<MessageRow>('messages', { query: 'select=*&order=sent_at.asc&limit=500' });
+}
+
+/**
+ * Reviews, for moderation.
+ *
+ * The Terms say reviews that are bought, self-written or malicious "will be
+ * removed". Nothing in the console could see a review, let alone remove one.
+ * This at least makes them readable, alongside the booking each claims to come
+ * from -- which is what a paid-for review usually fails to have.
+ */
+export async function getReviews() {
+  return sb<ReviewRow>('listing_reviews', { query: 'select=*&order=created_at.desc&limit=300' });
+}
+
 /** Everything the overview needs, in one pass. */
 export async function getOverview() {
   const [payouts, payments, bookings, listings, profiles] = await Promise.all([

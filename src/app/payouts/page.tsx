@@ -1,7 +1,19 @@
 import { revalidatePath } from 'next/cache';
 
+import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId, when } from '@/components/ui';
+import {
+  Badge,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  ago,
+  kes,
+  personIndex,
+  personSearch,
+  when,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getPayouts, getProfiles } from '@/lib/queries';
 import { sb } from '@/lib/supabase';
@@ -19,6 +31,12 @@ const FILTERS = ['pending', 'processing', 'paid', 'failed', 'all'] as const;
  * money has left, or record why it failed.
  *
  * Marking paid does not move money. It records that a human did.
+ *
+ * The status filter stays in the URL and is answered by the database, because
+ * it decides which rows are fetched at all. The search box on top of it is
+ * client-side and narrows what came back -- which is the question an operator
+ * actually arrives with ("where is Mary's payout?"), and one the old screen
+ * could only answer by scrolling.
  */
 export default async function PayoutsPage({
   searchParams,
@@ -31,7 +49,7 @@ export default async function PayoutsPage({
   const status = params.status ?? 'pending';
 
   const [payouts, profiles] = await Promise.all([getPayouts(status), getProfiles()]);
-  const byId = new Map(profiles.rows.map((row) => [row.id, row]));
+  const people = personIndex(profiles.rows);
 
   const queuedTotal = payouts.rows
     .filter((row) => row.status === 'pending' || row.status === 'processing')
@@ -87,7 +105,12 @@ export default async function PayoutsPage({
       ) : null}
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
-        <Metric label="Queued value" value={kes(queuedTotal)} hint="Pending and processing" />
+        <Metric
+          label="Queued value"
+          value={kes(queuedTotal)}
+          tone={queuedTotal > 0 ? 'warn' : 'good'}
+          hint="Pending and processing"
+        />
         <Metric
           label="Requests shown"
           value={payouts.rows.length}
@@ -100,89 +123,107 @@ export default async function PayoutsPage({
         />
       </div>
 
-      <div className="btn-row" style={{ marginBottom: 14 }}>
+      <div className="chips" style={{ marginBottom: 14 }}>
         {FILTERS.map((option) => (
           <a
             key={option}
             href={`/payouts?status=${option}`}
-            className={`btn ${option === status ? 'primary' : 'ghost'}`}>
+            className="chip"
+            aria-current={option === status ? 'page' : undefined}>
             {option}
           </a>
         ))}
       </div>
 
-      <Table head={['Host', 'Amount', 'Send to', 'Requested', 'Status', 'Action']}>
-        {payouts.rows.length === 0 ? (
-          <Empty>No payout requests with this status.</Empty>
-        ) : (
-          payouts.rows.map((row) => {
-            const profile = row.profile_id ? byId.get(row.profile_id) : undefined;
-            const open = row.status === 'pending' || row.status === 'processing';
+      <DataTable
+        head={['Host', 'Amount', 'Send to', 'Requested', 'Status', 'Action']}
+        placeholder="Search by host name, email or M-Pesa number…"
+        noun="request"
+        empty={
+          <>
+            <strong>Nothing with this status.</strong>
+            Every payout here has been dealt with.
+          </>
+        }>
+        {payouts.rows.map((row) => {
+          const open = row.status === 'pending' || row.status === 'processing';
+          const haystack = [
+            personSearch(row.profile_id, people),
+            row.destination_phone,
+            row.destination_name,
+            row.reference_note,
+            row.id,
+          ]
+            .filter(Boolean)
+            .join(' ');
 
-            return (
-              <tr key={row.id}>
-                <td>
-                  <div style={{ fontWeight: 700 }}>{profile?.full_name ?? 'Unknown host'}</div>
-                  <div className="mono">{profile?.email ?? shortId(row.profile_id, 12)}</div>
-                </td>
-                <td className="num">{kes(row.amount_kes)}</td>
-                <td>
-                  <div style={{ fontWeight: 700 }}>{row.destination_phone ?? '—'}</div>
-                  <div className="mono">
-                    {row.destination_name ?? row.reference_note ?? row.payout_method}
+          return (
+            <tr key={row.id} data-search={haystack}>
+              <td>
+                <PersonCell id={row.profile_id} people={people} />
+              </td>
+
+              <td className="num">{kes(row.amount_kes)}</td>
+
+              <td>
+                <div style={{ fontWeight: 700 }}>{row.destination_phone ?? '—'}</div>
+                <div className="mono">
+                  {row.destination_name ?? row.reference_note ?? row.payout_method}
+                </div>
+              </td>
+
+              <td className="dim nowrap">
+                <div>{ago(row.created_at)}</div>
+                <div className="mono">{when(row.created_at)}</div>
+              </td>
+
+              <td>
+                <Badge value={row.status} />
+                {row.failure_reason ? (
+                  <div className="mono" style={{ marginTop: 4 }}>
+                    {row.failure_reason}
                   </div>
-                </td>
-                <td className="dim">
-                  <div>{ago(row.created_at)}</div>
-                  <div className="mono">{when(row.created_at)}</div>
-                </td>
-                <td>
-                  <Badge value={row.status} />
-                  {row.failure_reason ? (
-                    <div className="mono" style={{ marginTop: 4 }}>
-                      {row.failure_reason}
-                    </div>
-                  ) : null}
-                </td>
-                <td>
-                  {open ? (
-                    <div className="btn-row">
-                      {row.status === 'pending' ? (
-                        <form action={setStatus}>
-                          <input type="hidden" name="id" value={row.id} />
-                          <input type="hidden" name="next" value="processing" />
-                          <button className="btn ghost" type="submit">
-                            Start
-                          </button>
-                        </form>
-                      ) : null}
+                ) : null}
+              </td>
 
+              <td>
+                {open ? (
+                  <div className="btn-row">
+                    {row.status === 'pending' ? (
                       <form action={setStatus}>
                         <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="next" value="paid" />
-                        <button className="btn primary" type="submit">
-                          Mark paid
+                        <input type="hidden" name="next" value="processing" />
+                        <button className="btn ghost small" type="submit">
+                          Start
                         </button>
                       </form>
+                    ) : null}
 
-                      <form action={setStatus}>
-                        <input type="hidden" name="id" value={row.id} />
-                        <input type="hidden" name="next" value="failed" />
-                        <input type="hidden" name="reason" value="Transfer failed" />
-                        <button className="btn danger" type="submit">
-                          Failed
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <span className="mono">{when(row.processed_at)}</span>
-                  )}
-                </td>
-              </tr>
-            );
-          })
-        )}
-      </Table>
+                    <form action={setStatus}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="next" value="paid" />
+                      <button className="btn primary small" type="submit">
+                        Mark paid
+                      </button>
+                    </form>
+
+                    <form action={setStatus}>
+                      <input type="hidden" name="id" value={row.id} />
+                      <input type="hidden" name="next" value="failed" />
+                      <input type="hidden" name="reason" value="Transfer failed" />
+                      <button className="btn danger small" type="submit">
+                        Failed
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <span className="mono">{when(row.processed_at)}</span>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </DataTable>
     </Shell>
   );
 }

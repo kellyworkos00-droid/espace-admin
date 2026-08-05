@@ -1,7 +1,19 @@
 import { revalidatePath } from 'next/cache';
 
+import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId } from '@/components/ui';
+import {
+  Badge,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  ago,
+  kes,
+  personIndex,
+  personSearch,
+  shortId,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getListings, getProfiles } from '@/lib/queries';
 import { sb } from '@/lib/supabase';
@@ -20,7 +32,7 @@ export default async function ListingsPage() {
   await requireAdmin();
 
   const [listings, profiles] = await Promise.all([getListings(), getProfiles()]);
-  const byId = new Map(profiles.rows.map((row) => [row.id, row]));
+  const people = personIndex(profiles.rows);
   const orphans = listings.rows.filter((row) => !row.owner_profile_id);
 
   async function assignOwner(formData: FormData) {
@@ -116,17 +128,44 @@ export default async function ListingsPage() {
         </Notice>
       ) : null}
 
-      <Table head={['Listing', 'Where', 'Price', 'Owner', 'State', 'Actions']}>
-        {listings.rows.length === 0 ? (
-          <Empty>No listings yet.</Empty>
-        ) : (
-          listings.rows.map((row) => {
-            const owner = row.owner_profile_id ? byId.get(row.owner_profile_id) : null;
-            const price = row.monthly_rent_kes ?? row.nightly_rate_kes ?? 0;
-            const unit = row.monthly_rent_kes ? '/mo' : row.nightly_rate_kes ? '/night' : '';
+      <DataTable
+        head={['Listing', 'Where', 'Price', 'Owner', 'State', 'Actions']}
+        placeholder="Search by title, area, county or owner…"
+        noun="listing"
+        filters={[
+          { value: 'orphaned', label: 'No owner' },
+          { value: 'paused', label: 'Paused' },
+          { value: 'live', label: 'Live' },
+        ]}
+        empty={
+          <>
+            <strong>No listings yet.</strong>
+            Homes appear here as soon as a host publishes one.
+          </>
+        }>
+        {listings.rows.map((row) => {
+          const price = row.monthly_rent_kes ?? row.nightly_rate_kes ?? 0;
+          const unit = row.monthly_rent_kes ? '/mo' : row.nightly_rate_kes ? '/night' : '';
+          const state = !row.owner_profile_id
+            ? 'orphaned'
+            : row.is_paused
+              ? 'paused'
+              : row.is_booked
+                ? 'booked'
+                : 'live';
 
-            return (
-              <tr key={row.id}>
+          const haystack = [
+            row.title,
+            row.neighborhood,
+            row.county,
+            personSearch(row.owner_profile_id, people),
+            row.id,
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <tr key={row.id} data-search={haystack} data-filter={state}>
                 <td>
                   <div style={{ fontWeight: 700 }}>{row.title}</div>
                   <div className="mono">
@@ -142,11 +181,8 @@ export default async function ListingsPage() {
                   <span style={{ fontWeight: 500, color: 'var(--muted)' }}>{unit}</span>
                 </td>
                 <td>
-                  {owner ? (
-                    <>
-                      <div style={{ fontWeight: 700 }}>{owner.full_name ?? 'Unnamed'}</div>
-                      <div className="mono">{owner.email ?? shortId(owner.id)}</div>
-                    </>
+                  {row.owner_profile_id ? (
+                    <PersonCell id={row.owner_profile_id} people={people} />
                   ) : (
                     <form action={assignOwner} className="btn-row">
                       <input type="hidden" name="listingId" value={row.id} />
@@ -160,24 +196,14 @@ export default async function ListingsPage() {
                           </option>
                         ))}
                       </select>
-                      <button className="btn primary" type="submit">
+                      <button className="btn primary small" type="submit">
                         Save
                       </button>
                     </form>
                   )}
                 </td>
                 <td>
-                  <Badge
-                    value={
-                      !row.owner_profile_id
-                        ? 'orphaned'
-                        : row.is_paused
-                          ? 'paused'
-                          : row.is_booked
-                            ? 'booked'
-                            : 'live'
-                    }
-                  />
+                  <Badge value={state} />
                   {row.verified ? (
                     <div style={{ marginTop: 4 }}>
                       <Badge value="verified" tone="green" />
@@ -189,14 +215,14 @@ export default async function ListingsPage() {
                     <form action={togglePause}>
                       <input type="hidden" name="listingId" value={row.id} />
                       <input type="hidden" name="paused" value={String(Boolean(row.is_paused))} />
-                      <button className="btn ghost" type="submit">
+                      <button className="btn ghost small" type="submit">
                         {row.is_paused ? 'Unpause' : 'Pause'}
                       </button>
                     </form>
                     <form action={setVerified}>
                       <input type="hidden" name="listingId" value={row.id} />
                       <input type="hidden" name="verified" value={String(Boolean(row.verified))} />
-                      <button className="btn ghost" type="submit">
+                      <button className="btn ghost small" type="submit">
                         {row.verified ? 'Unverify' : 'Verify'}
                       </button>
                     </form>
@@ -204,9 +230,8 @@ export default async function ListingsPage() {
                 </td>
               </tr>
             );
-          })
-        )}
-      </Table>
+        })}
+      </DataTable>
     </Shell>
   );
 }

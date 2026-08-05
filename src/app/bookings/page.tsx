@@ -1,9 +1,39 @@
+import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId } from '@/components/ui';
+import {
+  Badge,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  ago,
+  kes,
+  personIndex,
+  personSearch,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
-import { getBookings, getListings, getProfiles } from '@/lib/queries';
+import { getBookings, getListings, getProfiles, type BookingRow } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The dates a booking actually holds.
+ *
+ * The app writes move_in_date/checkout_date; the check_in_date/check_out_date
+ * pair exists on the table and is left null. This screen read only the null
+ * pair, so every booking ever shown here displayed "— to —" -- a column of
+ * dashes where the stay window belonged, on the one screen you would visit in
+ * order to check a stay window.
+ *
+ * The same mistake made a health check pass while a double-booking was live,
+ * which is how it came to light.
+ */
+function stayWindow(row: BookingRow) {
+  return {
+    start: row.check_in_date ?? row.move_in_date ?? null,
+    end: row.check_out_date ?? row.checkout_date ?? null,
+  };
+}
 
 /**
  * Bookings.
@@ -26,7 +56,7 @@ export default async function BookingsPage() {
   ]);
 
   const listingById = new Map(listings.rows.map((row) => [row.id, row]));
-  const profileById = new Map(profiles.rows.map((row) => [row.id, row]));
+  const people = personIndex(profiles.rows);
 
   const missingHost = bookings.rows.filter((row) => !row.host_profile_id);
   const value = bookings.rows.reduce((total, row) => total + Number(row.amount_kes ?? 0), 0);
@@ -50,60 +80,85 @@ export default async function BookingsPage() {
         <Metric
           label="Missing a host"
           value={missingHost.length}
+          tone={missingHost.length > 0 ? 'bad' : 'good'}
           hint={missingHost.length > 0 ? 'Payout impossible until fixed' : 'All attributed'}
         />
       </div>
 
       {missingHost.length > 0 ? (
         <Notice tone="error" title={`${missingHost.length} booking(s) have no host`}>
-          These came from listings with no owner. Assign the owner on the Listings screen and the host
-          is backfilled here automatically.
+          These came from listings with no owner. Assign the owner on the Listings screen and the
+          host is backfilled here automatically.
         </Notice>
       ) : null}
 
-      <Table head={['Listing', 'Guest', 'Host', 'Dates', 'Amount', 'Status', 'Payment']}>
-        {bookings.rows.length === 0 ? (
-          <Empty>No bookings yet.</Empty>
-        ) : (
-          bookings.rows.map((row) => {
-            const listing = row.listing_id ? listingById.get(row.listing_id) : undefined;
-            const guest = row.guest_profile_id ? profileById.get(row.guest_profile_id) : undefined;
-            const host = row.host_profile_id ? profileById.get(row.host_profile_id) : undefined;
+      <DataTable
+        head={['Listing', 'Guest', 'Host', 'Dates', 'Amount', 'Status', 'Payment']}
+        placeholder="Search by listing, guest or host…"
+        noun="booking"
+        filters={[
+          { value: 'no-host', label: 'No host' },
+          { value: 'paid', label: 'Paid' },
+          { value: 'unpaid', label: 'Unpaid' },
+        ]}
+        empty={
+          <>
+            <strong>No bookings yet.</strong>
+            They appear the moment someone books a home in the app.
+          </>
+        }>
+        {bookings.rows.map((row) => {
+          const listing = row.listing_id ? listingById.get(row.listing_id) : undefined;
+          const { start, end } = stayWindow(row);
+          const settled = row.payment_status === 'held' || row.payment_status === 'released';
 
-            return (
-              <tr key={row.id}>
-                <td>
-                  <div style={{ fontWeight: 700 }}>{listing?.title ?? '—'}</div>
-                  <div className="mono">{ago(row.created_at)}</div>
-                </td>
-                <td className="dim">
-                  {guest?.full_name ?? guest?.email ?? (
-                    <span className="mono">{shortId(row.guest_profile_id) || 'none'}</span>
-                  )}
-                </td>
-                <td className="dim">
-                  {host?.full_name ?? host?.email ?? (
-                    <span className="mono" style={{ color: 'var(--red)' }}>
-                      no host
-                    </span>
-                  )}
-                </td>
-                <td className="dim">
-                  {row.check_in_date ?? '—'}
-                  <div className="mono">to {row.check_out_date ?? '—'}</div>
-                </td>
-                <td className="num">{kes(row.amount_kes)}</td>
-                <td>
-                  <Badge value={row.request_status ?? row.status} />
-                </td>
-                <td>
-                  <Badge value={row.payment_status ?? 'none'} />
-                </td>
-              </tr>
-            );
-          })
-        )}
-      </Table>
+          const haystack = [
+            listing?.title,
+            listing?.neighborhood,
+            listing?.county,
+            personSearch(row.guest_profile_id, people),
+            personSearch(row.host_profile_id, people),
+            row.id,
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <tr
+              key={row.id}
+              data-search={haystack}
+              data-filter={!row.host_profile_id ? 'no-host' : settled ? 'paid' : 'unpaid'}>
+              <td>
+                <div style={{ fontWeight: 700 }}>{listing?.title ?? 'Listing removed'}</div>
+                <div className="mono">booked {ago(row.created_at)}</div>
+              </td>
+
+              <td>
+                <PersonCell id={row.guest_profile_id} people={people} />
+              </td>
+
+              <td>
+                <PersonCell id={row.host_profile_id} people={people} />
+              </td>
+
+              <td className="dim nowrap">
+                {start ?? '—'}
+                <div className="mono">to {end ?? '—'}</div>
+              </td>
+
+              <td className="num">{kes(row.amount_kes)}</td>
+
+              <td>
+                <Badge value={row.request_status ?? row.status} />
+              </td>
+
+              <td>
+                <Badge value={row.payment_status ?? 'none'} />
+              </td>
+            </tr>
+          );
+        })}
+      </DataTable>
     </Shell>
   );
 }

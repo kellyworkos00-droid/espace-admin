@@ -134,7 +134,7 @@ export default async function VerificationsPage({
                       common reason to reject, so the mismatch is called out. */}
                   {profile?.full_name &&
                   profile.full_name.trim().toLowerCase() !== row.legal_name.trim().toLowerCase() ? (
-                    <div className="mono" style={{ color: 'var(--amber)' }}>
+                    <div className="mono" style={{ color: 'var(--warn)' }}>
                       differs from account name
                     </div>
                   ) : null}

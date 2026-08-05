@@ -1,7 +1,19 @@
 import { revalidatePath } from 'next/cache';
 
+import { IconSearch } from '@/components/icons';
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId } from '@/components/ui';
+import {
+  Badge,
+  Empty,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  Table,
+  ago,
+  kes,
+  personIndex,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getBookings, getListings, getPayouts, getProfiles } from '@/lib/queries';
 import { sb } from '@/lib/supabase';
@@ -39,6 +51,7 @@ export default async function AccountsPage({
     getPayouts('all'),
   ]);
 
+  const people = personIndex(profiles.rows);
   const listingsByOwner = new Map<string, number>();
   for (const row of listings.rows) {
     if (!row.owner_profile_id) continue;
@@ -173,29 +186,36 @@ export default async function AccountsPage({
         />
       </div>
 
-      <form style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-        <input
-          type="search"
-          name="q"
-          defaultValue={params.q ?? ''}
-          placeholder="Search name, email or id…"
-          style={{ maxWidth: 320 }}
-        />
-        <input type="hidden" name="filter" value={filter} />
-        <button className="btn ghost" type="submit">
-          Search
-        </button>
-      </form>
+      <div className="toolbar">
+        <form className="search">
+          {/* The class reserves 33px on the left for this. Without it the
+              placeholder just sits in an unexplained gap. */}
+          <IconSearch />
+          <input
+            type="search"
+            name="q"
+            defaultValue={params.q ?? ''}
+            placeholder="Search name, email or id…"
+            aria-label="Search accounts"
+          />
+          <input type="hidden" name="filter" value={filter} />
+        </form>
 
-      <div className="btn-row" style={{ marginBottom: 14 }}>
-        {['all', 'renters', 'hosts', 'unverified', 'blocked'].map((option) => (
-          <a
-            key={option}
-            href={`/accounts?filter=${option}${search ? `&q=${encodeURIComponent(search)}` : ''}`}
-            className={`btn ${option === filter ? 'primary' : 'ghost'}`}>
-            {option}
-          </a>
-        ))}
+        <div className="chips">
+          {['all', 'renters', 'hosts', 'unverified', 'blocked'].map((option) => (
+            <a
+              key={option}
+              href={`/accounts?filter=${option}${search ? `&q=${encodeURIComponent(search)}` : ''}`}
+              className="chip"
+              aria-current={option === filter ? 'page' : undefined}>
+              {option}
+            </a>
+          ))}
+        </div>
+
+        <span className="result-count">
+          {visible.length} of {profiles.rows.length} accounts
+        </span>
       </div>
 
       <Table head={['Account', 'Type', 'Activity', 'Value', 'Verification', 'Controls']}>
@@ -209,9 +229,10 @@ export default async function AccountsPage({
             return (
               <tr key={row.id}>
                 <td>
-                  <div style={{ fontWeight: 700 }}>{row.full_name ?? 'Unnamed'}</div>
-                  <div className="mono">{row.email ?? shortId(row.id, 16)}</div>
-                  <div className="mono">joined {ago(row.created_at)}</div>
+                  <PersonCell id={row.id} people={people} />
+                  <div className="mono" style={{ marginTop: 4 }}>
+                    joined {ago(row.created_at)}
+                  </div>
                 </td>
                 <td>
                   {(() => {
@@ -227,7 +248,7 @@ export default async function AccountsPage({
                     </div>
                   ) : null}
                   {accountType(row.id, row.role) !== 'renter' && !row.verified ? (
-                    <div className="mono" style={{ color: 'var(--amber)', marginTop: 4 }}>
+                    <div className="mono" style={{ color: 'var(--warn)', marginTop: 4 }}>
                       cannot post
                     </div>
                   ) : null}
@@ -254,7 +275,7 @@ export default async function AccountsPage({
                       <input type="hidden" name="id" value={row.id} />
                       <input type="hidden" name="next" value={String(!row.verified)} />
                       <button
-                        className={`btn ${row.verified ? 'danger' : 'primary'}`}
+                        className={`btn small ${row.verified ? 'danger' : 'primary'}`}
                         type="submit">
                         {row.verified ? 'Revoke verification' : 'Verify account'}
                       </button>
@@ -273,7 +294,7 @@ export default async function AccountsPage({
                           </option>
                         ))}
                       </select>
-                      <button className="btn ghost" type="submit">
+                      <button className="btn ghost small" type="submit">
                         Save
                       </button>
                     </form>

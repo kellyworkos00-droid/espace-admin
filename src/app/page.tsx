@@ -1,7 +1,19 @@
 import Link from 'next/link';
 
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId } from '@/components/ui';
+import {
+  Badge,
+  Empty,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  SectionTitle,
+  Table,
+  ago,
+  kes,
+  personIndex,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { runHealthChecks } from '@/lib/health';
 import { getOverview } from '@/lib/queries';
@@ -21,6 +33,8 @@ export default async function OverviewPage() {
     payouts: payouts.rows,
     profiles: profiles.rows,
   });
+
+  const people = personIndex(profiles.rows);
   const queue = payouts.rows.filter((row) => row.status === 'pending' || row.status === 'processing');
 
   return (
@@ -63,10 +77,7 @@ export default async function OverviewPage() {
             .map((check) => `${check.title.toLowerCase()} (${check.items.length})`)
             .join(', ')}
           {health.failing.length > 3 ? `, and ${health.failing.length - 3} more` : ''}.{' '}
-          <Link href="/health" style={{ textDecoration: 'underline', fontWeight: 800 }}>
-            Review them
-          </Link>
-          .
+          <Link href="/health">Review them</Link>.
         </Notice>
       ) : null}
 
@@ -74,16 +85,19 @@ export default async function OverviewPage() {
         <Metric
           label="Awaiting verification"
           value={metrics.unverifiedCount}
+          tone={metrics.unverifiedCount > 0 ? 'warn' : 'good'}
           hint={`${metrics.profileCount} account(s) total`}
         />
         <Metric
           label="Held in escrow"
           value={kes(metrics.heldKes)}
+          tone="info"
           hint={`${metrics.heldCount} payment(s), released by renters in the app`}
         />
         <Metric
           label="Payouts queued"
           value={kes(metrics.queuedPayoutKes)}
+          tone={metrics.queuedPayoutCount > 0 ? 'warn' : 'good'}
           hint={`${metrics.queuedPayoutCount} host(s) waiting`}
         />
         <Metric
@@ -95,17 +109,25 @@ export default async function OverviewPage() {
 
       <div className="grid cols-2">
         <div>
-          <h2 style={{ fontSize: 15, margin: '10px 0' }}>Payouts waiting</h2>
+          <SectionTitle count={queue.length}>Payouts waiting</SectionTitle>
           <Table head={['Host', 'Amount', 'To', 'Waiting', 'Status']}>
             {queue.length === 0 ? (
-              <Empty>Nothing waiting. Every requested payout has been handled.</Empty>
+              <Empty>
+                <strong>Nothing waiting.</strong>
+                Every requested payout has been handled.
+              </Empty>
             ) : (
               queue.slice(0, 8).map((row) => (
                 <tr key={row.id}>
-                  <td className="mono">{shortId(row.profile_id)}</td>
+                  {/* Was a truncated uuid in a monospace font. Nobody can act
+                      on a hash, and knowing who is owed is the entire point of
+                      the panel. */}
+                  <td>
+                    <PersonCell id={row.profile_id} people={people} />
+                  </td>
                   <td className="num">{kes(row.amount_kes)}</td>
                   <td className="dim">{row.destination_phone ?? row.reference_note ?? '—'}</td>
-                  <td className="dim">{ago(row.created_at)}</td>
+                  <td className="dim nowrap">{ago(row.created_at)}</td>
                   <td>
                     <Badge value={row.status} />
                   </td>
@@ -116,10 +138,13 @@ export default async function OverviewPage() {
         </div>
 
         <div>
-          <h2 style={{ fontSize: 15, margin: '10px 0' }}>Recent payments</h2>
+          <SectionTitle count={payments.rows.length}>Recent payments</SectionTitle>
           <Table head={['Amount', 'Status', 'Payer', 'When']}>
             {payments.rows.length === 0 ? (
-              <Empty>No payments recorded yet.</Empty>
+              <Empty>
+                <strong>No payments recorded yet.</strong>
+                The first booking paid through the app appears here.
+              </Empty>
             ) : (
               payments.rows.slice(0, 8).map((row) => (
                 <tr key={row.id}>
@@ -128,7 +153,7 @@ export default async function OverviewPage() {
                     <Badge value={row.status} />
                   </td>
                   <td className="dim">{row.payer_phone ?? '—'}</td>
-                  <td className="dim">{ago(row.created_at)}</td>
+                  <td className="dim nowrap">{ago(row.created_at)}</td>
                 </tr>
               ))
             )}

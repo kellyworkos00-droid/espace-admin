@@ -4,28 +4,65 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
-const NAV = [
-  { href: '/', label: 'Overview' },
-  { href: '/health', label: 'Health' },
-  { href: '/verifications', label: 'Verifications' },
-  { href: '/accounts', label: 'Accounts' },
-  { href: '/listings', label: 'Listings' },
-  { href: '/bookings', label: 'Bookings' },
-  { href: '/finance', label: 'Finance' },
-  { href: '/payouts', label: 'Payouts' },
-] as const;
+import {
+  IconAccounts,
+  IconBookings,
+  IconFinance,
+  IconHealth,
+  IconListings,
+  IconMessages,
+  IconOverview,
+  IconPayouts,
+  IconReviews,
+  IconVerify,
+} from './icons';
+import { ThemeToggle } from './theme-toggle';
 
 /**
  * Console shell.
  *
- * Health sits second because the faults it lists are the ones nothing else
- * will ever tell you about; the rest of the console looks healthy while they
- * are happening. Verifications follows as the console's main recurring job:
- * the badge gates listing and payout in the app, and only a person can grant
- * it.
- * Finance and Bookings are reporting -- escrow release belongs to the renter,
- * in the app, not to anyone here.
+ * Grouped rather than listed flat, because the flat list had no shape:
+ * verifications and payouts are work waiting on a person, listings and
+ * accounts are things you go and look at, and messages and reviews are what
+ * you read when deciding a dispute. A queue you must act on and a table you
+ * merely consult deserve to be visibly different kinds of thing.
+ *
+ * Needs attention comes first and stays first. The faults under Health are the
+ * ones nothing else will ever tell you about -- the rest of the console looks
+ * perfectly healthy while they are happening.
+ *
+ * Escrow release is not here and never will be: it belongs to the renter, in
+ * the app. This console reports on money; it does not move it.
  */
+
+const GROUPS = [
+  {
+    title: 'Needs attention',
+    items: [
+      { href: '/', label: 'Overview', Icon: IconOverview },
+      { href: '/health', label: 'Health', Icon: IconHealth },
+      { href: '/verifications', label: 'Verifications', Icon: IconVerify },
+      { href: '/payouts', label: 'Payouts', Icon: IconPayouts },
+    ],
+  },
+  {
+    title: 'Marketplace',
+    items: [
+      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
+      { href: '/listings', label: 'Listings', Icon: IconListings },
+      { href: '/bookings', label: 'Bookings', Icon: IconBookings },
+    ],
+  },
+  {
+    title: 'Evidence',
+    items: [
+      { href: '/messages', label: 'Messages', Icon: IconMessages },
+      { href: '/reviews', label: 'Reviews', Icon: IconReviews },
+      { href: '/finance', label: 'Finance', Icon: IconFinance },
+    ],
+  },
+] as const;
+
 export function Shell({
   children,
   badges,
@@ -40,28 +77,47 @@ export function Shell({
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          E <span>Space</span>
-          <small>OPERATIONS</small>
+          <span className="brand-mark">e</span>
+          <span className="brand-name">
+            E Space
+            <small>OPERATIONS</small>
+          </span>
         </div>
 
         <nav className="nav">
-          {NAV.map((item) => {
-            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-            const count = badges?.[item.href] ?? 0;
-            return (
-              <Link key={item.href} href={item.href} className={active ? 'active' : undefined}>
-                <span>{item.label}</span>
-                {count > 0 ? <span className="pill">{count}</span> : null}
-              </Link>
-            );
-          })}
+          {GROUPS.map((group) => (
+            <div className="nav-group" key={group.title}>
+              <div className="nav-title">{group.title}</div>
+              {group.items.map(({ href, label, Icon }) => {
+                const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+                const count = badges?.[href] ?? 0;
+                return (
+                  <Link key={href} href={href} className={active ? 'active' : undefined}>
+                    <Icon />
+                    <span className="nav-label">{label}</span>
+                    {/* Health counts faults, not chores. Red says the number
+                        beside it is money at risk rather than a queue. */}
+                    {count > 0 ? (
+                      <span className={href === '/health' ? 'pill bad' : 'pill'}>{count}</span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
-        <form action="/api/logout" method="post">
-          <button className="btn ghost" style={{ width: '100%' }} type="submit">
-            Sign out
-          </button>
-        </form>
+        <div className="sidebar-foot">
+          <ThemeToggle />
+          <form action="/api/logout" method="post">
+            <button
+              className="btn ghost"
+              style={{ width: '100%', justifyContent: 'center' }}
+              type="submit">
+              Sign out
+            </button>
+          </form>
+        </div>
       </aside>
 
       <main className="main">{children}</main>

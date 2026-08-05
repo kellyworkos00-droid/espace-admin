@@ -1,5 +1,19 @@
+import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, kes, shortId, when } from '@/components/ui';
+import {
+  Badge,
+  Metric,
+  Notice,
+  PageHead,
+  PersonCell,
+  SectionTitle,
+  ago,
+  kes,
+  personIndex,
+  personSearch,
+  shortId,
+  when,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getBookings, getListings, getPayments, getPayouts, getProfiles } from '@/lib/queries';
 
@@ -36,6 +50,7 @@ export default async function FinancePage({
     getPayouts('all'),
   ]);
 
+  const people = personIndex(profiles.rows);
   const bookingById = new Map(bookings.rows.map((row) => [row.id, row]));
   const listingById = new Map(listings.rows.map((row) => [row.id, row]));
   const profileById = new Map(profiles.rows.map((row) => [row.id, row]));
@@ -130,9 +145,7 @@ export default async function FinancePage({
 
       <div className="grid cols-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="label" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted)' }}>
-            Money in by month
-          </div>
+          <div className="label">Money in by month</div>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 9 }}>
             {months.length === 0 ? (
               <div className="empty">No payments recorded yet.</div>
@@ -140,12 +153,12 @@ export default async function FinancePage({
               months.map(([month, value]) => (
                 <div key={month} style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                   <span className="mono" style={{ width: 62 }}>{month}</span>
-                  <div style={{ flex: 1, height: 8, background: '#f0f4f2', borderRadius: 999 }}>
+                  <div style={{ flex: 1, height: 8, background: 'var(--sunken)', borderRadius: 999 }}>
                     <div
                       style={{
                         width: `${(value / peak) * 100}%`,
                         height: '100%',
-                        background: 'var(--green)',
+                        background: 'var(--brand)',
                         borderRadius: 999,
                       }}
                     />
@@ -160,20 +173,16 @@ export default async function FinancePage({
         </div>
 
         <div className="card">
-          <div className="label" style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted)' }}>
-            Top earning hosts
-          </div>
+          <div className="label">Top earning hosts</div>
           <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {hostRows.length === 0 ? (
               <div className="empty">No host earnings yet.</div>
             ) : (
               hostRows.map(([hostId, entry]) => {
-                const profile = profileById.get(hostId);
                 return (
                   <div key={hostId} style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700 }}>{profile?.full_name ?? 'Unknown host'}</div>
-                      <div className="mono">{entry.bookings} payment(s)</div>
+                      <PersonCell id={hostId} people={people} sub={`${entry.bookings} payment(s)`} />
                     </div>
                     <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <div style={{ fontWeight: 800 }}>{kes(entry.released)}</div>
@@ -187,41 +196,58 @@ export default async function FinancePage({
         </div>
       </div>
 
-      <h2 style={{ fontSize: 15, margin: '0 0 10px' }}>Payment records</h2>
+      <SectionTitle count={payments.rows.length}>Payment records</SectionTitle>
 
-      <div className="btn-row" style={{ marginBottom: 14 }}>
+      <div className="chips" style={{ marginBottom: 14 }}>
         {FILTERS.map((option) => (
           <a
             key={option}
             href={`/finance?status=${option}`}
-            className={`btn ${option === status ? 'primary' : 'ghost'}`}>
+            className="chip"
+            aria-current={option === status ? 'page' : undefined}>
             {option}
           </a>
         ))}
       </div>
 
-      <Table head={['Amount', 'Listing', 'Host', 'Payer', 'Reference', 'When', 'Status']}>
-        {payments.rows.length === 0 ? (
-          <Empty>No payments with this status.</Empty>
-        ) : (
-          payments.rows.map((row) => {
-            const booking = row.booking_id ? bookingById.get(row.booking_id) : undefined;
-            const listing = booking?.listing_id ? listingById.get(booking.listing_id) : undefined;
-            const host = booking?.host_profile_id ? profileById.get(booking.host_profile_id) : undefined;
+      <DataTable
+        head={['Amount', 'Listing', 'Host', 'Payer', 'Reference', 'When', 'Status']}
+        placeholder="Search by listing, host, M-Pesa number or reference…"
+        noun="payment"
+        empty={
+          <>
+            <strong>No payments with this status.</strong>
+            Change the filter above to see the rest.
+          </>
+        }>
+        {payments.rows.map((row) => {
+          const booking = row.booking_id ? bookingById.get(row.booking_id) : undefined;
+          const listing = booking?.listing_id ? listingById.get(booking.listing_id) : undefined;
 
-            return (
-              <tr key={row.id}>
+          // Every reference an operator might be handed: a host quotes the
+          // M-Pesa code, eConfirm quotes the transaction id, and support
+          // threads quote whichever was to hand.
+          const haystack = [
+            listing?.title,
+            personSearch(booking?.host_profile_id, people),
+            row.payer_phone,
+            row.provider_confirmation_code,
+            row.checkout_request_id,
+            row.econfirm_transaction_id,
+            row.booking_id,
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <tr key={row.id} data-search={haystack}>
                 <td className="num">{kes(row.amount_kes)}</td>
                 <td>
                   <div style={{ fontWeight: 700 }}>{listing?.title ?? '—'}</div>
                   <div className="mono">{shortId(booking?.id, 14)}</div>
                 </td>
-                <td className="dim">
-                  {host?.full_name ?? (
-                    <span className="mono" style={{ color: 'var(--red)' }}>
-                      no host
-                    </span>
-                  )}
+                <td>
+                  <PersonCell id={booking?.host_profile_id} people={people} />
                 </td>
                 <td className="dim">{row.payer_phone ?? '—'}</td>
                 <td className="mono">
@@ -237,9 +263,8 @@ export default async function FinancePage({
                 </td>
               </tr>
             );
-          })
-        )}
-      </Table>
+        })}
+      </DataTable>
     </Shell>
   );
 }
