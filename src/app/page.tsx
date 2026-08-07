@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { runHealthChecks } from '@/lib/health';
-import { getOverview } from '@/lib/queries';
+import { getOverview, getReports } from '@/lib/queries';
 import { hasServiceRole } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,15 @@ export const dynamic = 'force-dynamic';
 export default async function OverviewPage() {
   await requireAdmin();
 
-  const { metrics, payouts, payments, bookings, listings, profiles, error } = await getOverview();
+  const [{ metrics, payouts, payments, bookings, listings, profiles, error }, reports] =
+    await Promise.all([getOverview(), getReports()]);
+
+  // Reports are the one queue that arrives from outside: nobody in operations
+  // creates them, so nothing prompts anyone to look unless the overview says so.
+  const openReports = reports.rows.filter((row) => row.status === 'open');
+  const urgentReports = openReports.filter(
+    (row) => row.reason === 'off_platform_payment' || row.reason === 'does_not_exist'
+  );
 
   const health = runHealthChecks({
     listings: listings.rows,
@@ -43,6 +51,7 @@ export default async function OverviewPage() {
         '/payouts': metrics.queuedPayoutCount,
         '/accounts': metrics.unverifiedCount,
         '/health': health.failing.length,
+        '/reports': openReports.length,
       }}>
       <PageHead
         title="Overview"
@@ -59,6 +68,15 @@ export default async function OverviewPage() {
         <Notice tone="warn" title="Running on the public key">
           Actions that change data may be refused by row-level security. Add{' '}
           <code>SUPABASE_SERVICE_ROLE_KEY</code> to <code>.env.local</code> and restart.
+        </Notice>
+      ) : null}
+
+      {urgentReports.length > 0 ? (
+        <Notice
+          tone="error"
+          title={`${urgentReports.length} report(s) of fraud or a home that is not real`}>
+          Someone asked to pay outside E Space has lost their escrow protection entirely.{' '}
+          <Link href="/reports">Read them</Link>.
         </Notice>
       ) : null}
 

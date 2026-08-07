@@ -171,6 +171,33 @@ export type ReviewRow = {
   created_at: string | null;
 };
 
+export type ReportRow = {
+  id: string;
+  listing_id: string | null;
+  reporter_profile_id: string | null;
+  reason: string;
+  detail: string | null;
+  status: string;
+  reviewer_note: string | null;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
+/**
+ * Reports on listings, newest first.
+ *
+ * The app's report button used to open an alert and offer the support screen;
+ * nothing was written down, so a home reported by eleven people looked exactly
+ * like one reported by nobody. Clause 6 of the Terms lets E Space withhold
+ * release on "a credible report of fraud, an unsafe space, or a listing that
+ * does not exist" -- a judgement that needs the reports in front of somebody.
+ */
+export async function getReports() {
+  return sb<ReportRow>('listing_reports', {
+    query: 'select=*&order=created_at.desc&limit=300',
+  });
+}
+
 /**
  * Conversations, newest first.
  *

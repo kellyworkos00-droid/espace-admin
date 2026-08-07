@@ -13,6 +13,7 @@ import {
   IconMessages,
   IconOverview,
   IconPayouts,
+  IconReports,
   IconRevenue,
   IconReviews,
   IconVerify,
@@ -48,6 +49,7 @@ const GROUPS = [
       { href: '/health', label: 'Health', Icon: IconHealth },
       { href: '/verifications', label: 'Verifications', Icon: IconVerify },
       { href: '/payouts', label: 'Payouts', Icon: IconPayouts },
+      { href: '/reports', label: 'Reports', Icon: IconReports },
     ],
   },
   {
