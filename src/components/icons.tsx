@@ -137,6 +137,15 @@ export function IconReports(p: IconProps) {
   );
 }
 
+export function IconRefunds(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3.5 9.5A8.5 8.5 0 1 1 4 15" />
+      <path d="M3 5v5h5" />
+    </Svg>
+  );
+}
+
 export function IconSearch(p: IconProps) {
   return (
     <Svg {...p}>
