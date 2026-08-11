@@ -74,6 +74,7 @@ const GROUPS = [
     items: [
       { href: '/messages', label: 'Messages', Icon: IconMessages },
       { href: '/reviews', label: 'Reviews', Icon: IconReviews },
+      { href: '/marketing', label: 'Marketing', Icon: IconMessages },
     ],
   },
 ] as const;
