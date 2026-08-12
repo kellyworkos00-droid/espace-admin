@@ -2,10 +2,11 @@ import { revalidatePath } from 'next/cache';
 
 import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Metric, Notice, PageHead, ago, when } from '@/components/ui';
+import { Badge, Metric, Notice, PageHead,
+  ServiceRoleRequired, ago, when } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { measureSms, sendSms, smsConfigured, withOptOut } from '@/lib/sms';
-import { sb } from '@/lib/supabase';
+import { hasServiceRole, sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,6 +147,8 @@ export default async function MarketingPage() {
         title="Marketing"
         description="SMS to people who opted in. Everyone else is unreachable from this screen, by design."
       />
+
+      {!hasServiceRole ? <ServiceRoleRequired reads="sms_campaigns and sms_messages" /> : null}
 
       {!smsConfigured() ? (
         <Notice tone="error" title="SMS is not configured">

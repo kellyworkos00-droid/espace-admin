@@ -1,10 +1,21 @@
 import { revalidatePath } from 'next/cache';
 
 import { Shell } from '@/components/shell';
-import { Badge, Empty, Metric, Notice, PageHead, Table, ago, shortId, when } from '@/components/ui';
+import {
+  Badge,
+  Empty,
+  Metric,
+  Notice,
+  PageHead,
+  ServiceRoleRequired,
+  Table,
+  ago,
+  shortId,
+  when,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getProfiles, getVerifications, signedDocUrl } from '@/lib/queries';
-import { sb } from '@/lib/supabase';
+import { sb, hasServiceRole } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +87,8 @@ export default async function VerificationsPage({
         title="Verifications"
         description="Identity submissions awaiting a decision. Approving here is the only thing that grants the verified badge."
       />
+
+      {!hasServiceRole ? <ServiceRoleRequired reads="verification_requests" /> : null}
 
       {missingTable ? (
         <Notice tone="warn" title="Verification table not created yet">

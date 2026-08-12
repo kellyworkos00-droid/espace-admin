@@ -223,6 +223,33 @@ export function SectionTitle({ children, count }: { children: ReactNode; count?:
   );
 }
 
+/**
+ * The tables row-level security hides from the anon key.
+ *
+ * PostgREST answers a blocked SELECT with an empty array rather than an error,
+ * so a page reading one of these shows a clean, plausible "nothing here" --
+ * indistinguishable from the truth, and wrong. Reports, verifications and the
+ * SMS log have all been reading as empty for exactly this reason.
+ *
+ * Named rather than inferred, because a page that quietly shows nothing is how
+ * a missing key survives for weeks.
+ */
+export function ServiceRoleRequired({ reads }: { reads: string }) {
+  return (
+    <Notice tone="error" title="This page cannot see its data yet">
+      {reads} {reads.includes(' and ') ? 'are' : 'is'} protected by row-level security, and the
+      console is authenticating with the publishable key — the same one inside the app. Postgres
+      returns an empty result rather than an error, so this page shows nothing whether or not there
+      is anything to show.
+      <div style={{ fontWeight: 600, marginTop: 8 }}>
+        Fix: Supabase → Project Settings → API keys → copy the <strong>secret</strong> key, and set{' '}
+        <code>SUPABASE_SERVICE_ROLE_KEY</code> in <code>espace-admin/.env.local</code>. The console
+        already prefers it when present. It is server-side only and never reaches a browser.
+      </div>
+    </Notice>
+  );
+}
+
 export function Notice({
   tone = 'info',
   title,
