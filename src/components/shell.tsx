@@ -29,10 +29,13 @@ export function Shell({
   return (
     <div className="shell">
       <aside className="sidebar">
+        {/* The mark carries the name, so the text beside it does not repeat it.
+            aria-label because a masked span has no accessible content of its
+            own -- to a screen reader it is an empty box otherwise. */}
         <div className="brand">
-          <span className="brand-mark">e</span>
+          <span className="brand-mark" role="img" aria-label="E Space" />
           <span className="brand-name">
-            E Space
+            e space
             <small>OPERATIONS</small>
           </span>
         </div>

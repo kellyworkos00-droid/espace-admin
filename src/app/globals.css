@@ -17,25 +17,43 @@
 :root {
   color-scheme: light;
 
-  /* Ground. The neutrals carry a slight green bias so they sit with the brand
-     instead of looking like unpainted grey. */
-  --canvas: #f2f6f4;
+  /*
+   * Taken from the logo rather than chosen to sit near it.
+   *
+   * The mark is a deep forest serif on a warm bone ground, and the console was
+   * built in a cool blue-green grey that shared nothing with it -- so the one
+   * piece of the product an operator sees every day looked like a different
+   * company from the app they were administering.
+   *
+   * Bone for the page, white for the surfaces that sit on it. The warmth is
+   * slight and deliberate: enough that a card reads as paper on a desk rather
+   * than a panel on a screen, not so much that it turns cream.
+   */
+  --canvas: #f1efe9;
   --surface: #ffffff;
-  --surface-2: #f8faf9;
-  --sunken: #eef3f0;
+  --surface-2: #faf9f6;
+  --sunken: #eceae3;
 
-  --ink: #08201b;
-  --body: #46605a;
-  --muted: #7b918b;
+  /* The ink is the logo's own green-black, not a neutral. It is what every
+     heading, every figure and the mark itself are drawn in. */
+  --ink: #12332c;
+  --body: #4c635c;
+  /* Solved for, not picked: this is the lightest green-grey that still
+     clears 4.5:1 on every ground it is drawn on. Muted carries the metric
+     labels, the table headings and the column hints -- all of it small,
+     all of it the first thing to disappear on a laptop screen in daylight,
+     and the previous value failed on three of the four backgrounds. */
+  --muted: #636c65;
 
-  --line: #dfe9e5;
-  --line-soft: #edf3f0;
+  --line: #e2ded4;
+  --line-soft: #edeae3;
 
-  /* Brand. The app's green, for identity and action. */
+  /* And the accent is the green from the feature graphic -- the one word set
+     apart in "your money protected". One accent, spent on actions. */
   --brand: #0f6a59;
   --brand-hover: #0c5748;
   --brand-ink: #ffffff;
-  --brand-soft: #e6f4ef;
+  --brand-soft: #e4f0eb;
 
   /* Status. Read before the word is read, so the meaning must never move:
      green settled, blue in flight, amber waiting on a person, red wrong. */
@@ -76,6 +94,11 @@
   --t-figure: 30px;
 
   --sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* For the wordmark only. The logo is a high-contrast serif, and this is the
+     nearest thing every machine already has -- no webfont request, and nothing
+     to fall back to badly. It is never used for anything that has to be read
+     quickly. */
+  --serif: 'Didot', 'Bodoni MT', 'Playfair Display', Georgia, 'Times New Roman', serif;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
   --sidebar-w: 258px;
@@ -86,17 +109,20 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --canvas: #071310;
-    --surface: #0e1e1a;
-    --surface-2: #12251f;
-    --sunken: #0a1a16;
+    /* Dark is the logo inverted: the forest becomes the ground and the bone
+       becomes the ink, which is exactly how the mark is drawn on a dark
+       surface. Not a neutral charcoal -- the green has to survive. */
+    --canvas: #0a1a16;
+    --surface: #102723;
+    --surface-2: #143029;
+    --sunken: #0c201c;
 
-    --ink: #e8f2ee;
-    --body: #9fb5ae;
-    --muted: #6f8880;
+    --ink: #eceae3;
+    --body: #a3b5ae;
+    --muted: #85968f;
 
-    --line: #1d332c;
-    --line-soft: #162a24;
+    --line: #214037;
+    --line-soft: #1a332c;
 
     --brand: #4fc9a5;
     --brand-hover: #6ad7b6;
@@ -130,17 +156,17 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --canvas: #071310;
-  --surface: #0e1e1a;
-  --surface-2: #12251f;
-  --sunken: #0a1a16;
+  --canvas: #0a1a16;
+  --surface: #102723;
+  --surface-2: #143029;
+  --sunken: #0c201c;
 
-  --ink: #e8f2ee;
-  --body: #9fb5ae;
-  --muted: #6f8880;
+  --ink: #eceae3;
+  --body: #a3b5ae;
+  --muted: #85968f;
 
-  --line: #1d332c;
-  --line-soft: #162a24;
+  --line: #214037;
+  --line-soft: #1a332c;
 
   --brand: #4fc9a5;
   --brand-hover: #6ad7b6;
@@ -194,6 +220,27 @@ td.num,
 
 a { color: inherit; text-decoration: none; }
 
+/* Highlighting a payout id to paste it elsewhere is something people do here
+   twenty times a day, and the browser default blue has nothing to do with this
+   product. */
+::selection { background: var(--brand-soft); color: var(--ink); }
+
+/* The default scrollbar is a grey slab from another decade sitting inside a
+   long table for the whole time it is being read. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
 /* Keyboard users get the same affordance mouse users get. */
 :focus-visible {
   outline: 2px solid var(--brand);
@@ -215,7 +262,9 @@ a { color: inherit; text-decoration: none; }
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
-  background: var(--surface);
+  /* A shade off the surface white: the sidebar is furniture, the tables are
+     the work, and giving them the same white made the whole screen one plane. */
+  background: var(--surface-2);
   border-right: 1px solid var(--line);
   padding: 18px 12px 14px;
   display: flex;
@@ -226,29 +275,45 @@ a { color: inherit; text-decoration: none; }
   height: 100vh;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 0; }
+.brand { display: flex; align-items: center; gap: 11px; padding: 2px 8px 0; }
+
+/*
+ * The actual mark, not a letter in a rounded square.
+ *
+ * Drawn as a mask over currentColor rather than placed as an image, so the one
+ * asset serves both themes: the glyph is forest on bone in the light and bone
+ * on forest in the dark, which is how the logo is drawn in both cases anyway.
+ * An <img> would have had a colour baked into it and needed a second file, or
+ * a filter that only approximates the right one.
+ */
 .brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(150deg, var(--brand-hover), var(--brand));
-  color: var(--brand-ink);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 17px;
-  letter-spacing: -0.5px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  box-shadow: var(--shadow-md);
+  background: var(--ink);
+  -webkit-mask: url('/brand/mark.png') center / contain no-repeat;
+  mask: url('/brand/mark.png') center / contain no-repeat;
 }
-.brand-name { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
+
+/* The wordmark is set rather than drawn: at 15px the logo's own "s p a c e"
+   would be a grey smudge, and a serif at this size next to the mark holds the
+   family resemblance without pretending to be the logotype. */
+.brand-name {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  line-height: 1.05;
+  color: var(--ink);
+}
 .brand-name small {
   display: block;
-  font-size: 10px;
-  font-weight: 700;
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 800;
   color: var(--muted);
-  letter-spacing: 1.1px;
-  margin-top: 2px;
+  letter-spacing: 1.5px;
+  margin-top: 3px;
 }
 
 .nav { display: flex; flex-direction: column; gap: 14px; flex: 1; overflow-y: auto; }
@@ -356,7 +421,11 @@ a { color: inherit; text-decoration: none; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 20px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  /* A hairline under the title, so the head is a masthead rather than the
+     first of several things floating in the same column of space. */
+  border-bottom: 1px solid var(--line-soft);
 }
 .page-head h1 {
   font-size: var(--t-title);
@@ -855,18 +924,58 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 
 /* ---------- login ---------- */
 
-.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--canvas); }
+/*
+ * Sign-in, which is the only screen with room for the logo at its full size.
+ *
+ * Everywhere else the mark is 30px in a corner. Here it is the whole page --
+ * one lockup on bone, the way it appears on the store listing, so the console
+ * is recognisably the same product before anyone has typed anything.
+ */
+.login-wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--canvas);
+  /* A faint pool of light behind the card. The bone ground is flat by nature
+     and a single card floating on it looks unplaced without one. */
+  background-image: radial-gradient(
+    68% 52% at 50% 26%,
+    var(--brand-soft) 0%,
+    transparent 72%
+  );
+}
 .login-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 392px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 30px;
+  border-radius: 20px;
+  padding: 34px 32px 32px;
   box-shadow: var(--shadow-lg);
 }
-.login-card h1 { font-size: 22px; margin: 14px 0 6px; letter-spacing: -0.5px; }
-.login-card p { color: var(--body); margin: 0 0 22px; font-size: 13.5px; }
+.login-lockup {
+  width: 96px;
+  height: 123px;
+  margin: 2px auto 22px;
+  display: block;
+  background: var(--ink);
+  -webkit-mask: url('/brand/lockup.png') center / contain no-repeat;
+  mask: url('/brand/lockup.png') center / contain no-repeat;
+}
+.login-card h1 {
+  font-size: 21px;
+  margin: 0 0 6px;
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+.login-card p {
+  color: var(--body);
+  margin: 0 0 24px;
+  font-size: var(--t-body);
+  text-align: center;
+  line-height: 1.55;
+}
 .field-label {
   font-size: 11.5px;
   font-weight: 800;
@@ -875,38 +984,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
   color: var(--body);
   margin-bottom: 7px;
   display: block;
-}
-
-/* ---------- responsive ---------- */
-
-@media (max-width: 1180px) {
-  .grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .grid.cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 820px) {
-  .grid.cols-4, .grid.cols-3, .grid.cols-2 { grid-template-columns: minmax(0, 1fr); }
-  .shell { flex-direction: column; }
-  .sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
-    overflow-x: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
-    padding: 10px 12px;
-  }
-  .nav { flex-direction: row; gap: 6px; }
-  .nav-group { flex-direction: row; gap: 6px; }
-  .nav-title, .sidebar-foot, .brand-name small { display: none; }
-  .nav-label { white-space: nowrap; }
-  .main { padding: 18px 14px 48px; }
-  .search { max-width: none; }
-  .result-count { margin-left: 0; }
-  .msg { max-width: 88%; }
 }
 
 /* ---------- narrower than a desk ---------- */

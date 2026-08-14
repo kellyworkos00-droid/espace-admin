@@ -33,13 +33,19 @@ export default async function LoginPage({
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="brand" style={{ padding: 0, color: '#0b1a17' }}>
-          E <span style={{ color: '#0f6a59' }}>Space</span>
-          <small style={{ color: '#8a9aa1' }}>OPERATIONS</small>
-        </div>
+        {/* The three colours here were hard-coded hexes, so this was the one
+            screen that ignored the theme entirely — a white card with fixed
+            dark text, in dark mode. */}
+        <span className="login-lockup" role="img" aria-label="E Space" />
 
-        <h1>Sign in</h1>
-        <p>This console releases escrow and pays hosts. Do not share access.</p>
+        <h1>Operations</h1>
+        <p>
+          {/* It does not release escrow — that belongs to the renter, in the
+              app. Claiming otherwise on the sign-in screen is the sort of
+              thing somebody later repeats in a support reply. */}
+          Payouts, verification and disputes for E Space. Access is per person;
+          do not share it.
+        </p>
 
         {!configured ? (
           <div className="notice warn">
