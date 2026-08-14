@@ -1,8 +1,11 @@
 import Link from 'next/link';
 
 import { Shell } from '@/components/shell';
-import { Metric, Notice, PageHead } from '@/components/ui';
+import { Metric, Notice, PageHead,
+  LoadError,
+} from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { runHealthChecks, type HealthCheck, type Severity } from '@/lib/health';
 import { getOverview } from '@/lib/queries';
 
@@ -97,11 +100,7 @@ export default async function HealthPage() {
         description="Faults that report nothing. Every one of these keeps the app working normally while quietly breaking who gets paid, or who gets the home."
       />
 
-      {error ? (
-        <Notice tone="error" title="Could not read the database">
-          {error}
-        </Notice>
-      ) : null}
+      <LoadError error={error} what="the database" keyed={hasServiceRole} />
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric

@@ -10,8 +10,10 @@ import {
   personIndex,
   personSearch,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { getBookings, getListings, getMessages, getProfiles, type MessageRow } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -133,17 +135,12 @@ export default async function MessagesPage() {
         description="The conversation behind a booking. This is the evidence a refund or a fraud report is decided on, so it is readable here and never editable."
       />
 
-      {messages.error ? (
-        <Notice tone="error" title="Could not load messages">
-          {messages.error}
-          {/* Named explicitly: an operator seeing an empty screen should know
-              whether there is nothing to read or nothing being returned. */}
-          <div style={{ fontWeight: 600, marginTop: 6 }}>
-            If this mentions the table, the console&rsquo;s key may not be permitted to read{' '}
-            <code>messages</code>.
-          </div>
-        </Notice>
-      ) : null}
+      <LoadError
+        error={messages.error}
+        what="messages"
+        keyed={hasServiceRole}
+        hint={<>If this mentions the table, the console&rsquo;s key may not be permitted to read <code>messages</code>.</>}
+      />
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric label="Conversations" value={threads.length} hint={`${messages.rows.length} message(s)`} />

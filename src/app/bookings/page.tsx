@@ -10,8 +10,10 @@ import {
   kes,
   personIndex,
   personSearch,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { getBookings, getListings, getProfiles, type BookingRow } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -68,11 +70,7 @@ export default async function BookingsPage() {
         description="Every booking made through the app, who it belongs to, and whether its money can actually reach a host."
       />
 
-      {bookings.error ? (
-        <Notice tone="error" title="Could not load bookings">
-          {bookings.error}
-        </Notice>
-      ) : null}
+      <LoadError error={bookings.error} what="bookings" keyed={hasServiceRole} />
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric label="Bookings" value={bookings.rows.length} />

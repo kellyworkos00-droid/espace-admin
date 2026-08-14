@@ -7,12 +7,12 @@ import {
   Metric,
   Notice,
   PageHead,
-  ServiceRoleRequired,
   PersonCell,
   ago,
   personIndex,
   personSearch,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { hasServiceRole } from '@/lib/supabase';
@@ -133,16 +133,12 @@ export default async function ReportsPage({
         description="What renters have told us is wrong with a listing. Ordered by what the report means, not when it arrived."
       />
 
-      {!hasServiceRole ? <ServiceRoleRequired reads="listing_reports" /> : null}
-
-      {reports.error ? (
-        <Notice tone="error" title="Could not load reports">
-          {reports.error}
-          <div style={{ fontWeight: 600, marginTop: 6 }}>
-            If this names the table, <code>SUPABASE_LISTING_REPORTS.sql</code> has not been run yet.
-          </div>
-        </Notice>
-      ) : null}
+      <LoadError
+        error={reports.error}
+        what="reports"
+        keyed={hasServiceRole}
+        hint={<>If this names the table, <code>SUPABASE_LISTING_REPORTS.sql</code> has not been run yet.</>}
+      />
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric

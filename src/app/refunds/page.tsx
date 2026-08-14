@@ -11,8 +11,10 @@ import {
   personIndex,
   personSearch,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { getBookings, getListings, getPayments, getProfiles } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -64,14 +66,14 @@ export default async function RefundsPage() {
         description="Renters who asked for their money back. None of it has been sent — read the notice below before working this queue."
       />
 
-      {payments.error ? (
-        <Notice tone="error" title="Could not load payments">
-          {payments.error}
-        </Notice>
-      ) : null}
+      <LoadError error={payments.error} what="payments" keyed={hasServiceRole} />
 
       {/* The first thing on the screen, because every row below it is a person
-          who has been told something untrue. */}
+          who has been told something untrue -- but only when there is a row.
+          With the queue empty there is nobody being misled, and a red block
+          over an empty table is the kind of standing alarm people learn to
+          scroll past, taking the real ones with it. */}
+      {refunds.length > 0 ? (
       <Notice tone="error" title="No refund on this screen has actually been paid">
         The app marks a payment refunded from the renter&rsquo;s own device and calls nothing.
         eConfirm never hears about it, so the money is still sitting in escrow exactly where it was
@@ -79,6 +81,7 @@ export default async function RefundsPage() {
         refund path is built, each of these has to be sent by hand, and the escrow released to the
         payer rather than the host.
       </Notice>
+      ) : null}
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric

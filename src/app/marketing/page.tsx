@@ -2,8 +2,7 @@ import { revalidatePath } from 'next/cache';
 
 import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
-import { Badge, Metric, Notice, PageHead,
-  ServiceRoleRequired, ago, when } from '@/components/ui';
+import { Badge, Metric, Notice, PageHead, ago, when } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { measureSms, sendSms, smsConfigured, withOptOut } from '@/lib/sms';
 import { hasServiceRole, sb } from '@/lib/supabase';
@@ -161,10 +160,9 @@ export default async function MarketingPage() {
         description="SMS to people who opted in. Everyone else is unreachable from this screen, by design."
       />
 
-      {!hasServiceRole ? <ServiceRoleRequired reads="sms_campaigns and sms_messages" /> : null}
-
+      {/* A setting that has not been filled in, not a failure. */}
       {!smsConfigured() ? (
-        <Notice tone="error" title="SMS is not configured">
+        <Notice tone="warn" title="SMS is not configured yet">
           Set <code>INFOBIP_BASE_URL</code> and <code>INFOBIP_API_KEY</code>, and optionally{' '}
           <code>INFOBIP_SMS_SENDER</code>, in the server environment.
         </Notice>

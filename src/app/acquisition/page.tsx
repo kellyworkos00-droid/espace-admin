@@ -6,7 +6,6 @@ import {
   Notice,
   PageHead,
   SectionTitle,
-  ServiceRoleRequired,
   Table,
   ago,
 } from '@/components/ui';
@@ -209,10 +208,6 @@ export default async function AcquisitionPage() {
         title="Acquisition"
         description="Where hosts come from, and which screen they stop on. Counts people, never events."
       />
-
-      {!hasServiceRole ? (
-        <ServiceRoleRequired reads="host_funnel_events" />
-      ) : null}
 
       {missing ? (
         <Notice tone="warn" title="The migration has not been run yet">

@@ -1,89 +1,23 @@
-'use client';
-
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
-import {
-  IconAccounts,
-  IconBookings,
-  IconAcquisition,
-  IconFinance,
-  IconHealth,
-  IconListings,
-  IconMarketing,
-  IconMessages,
-  IconOverview,
-  IconPayouts,
-  IconRefunds,
-  IconReports,
-  IconRevenue,
-  IconReviews,
-  IconVerify,
-} from './icons';
+import { Nav } from './nav';
 import { ThemeToggle } from './theme-toggle';
+import { hasServiceRole } from '@/lib/supabase';
 
 /**
  * Console shell.
  *
- * Grouped rather than listed flat, because the flat list had no shape:
- * verifications and payouts are work waiting on a person, listings and
- * accounts are things you go and look at, and messages and reviews are what
- * you read when deciding a dispute. A queue you must act on and a table you
- * merely consult deserve to be visibly different kinds of thing.
+ * A server component, which is the point: it can read the environment, so the
+ * one fact that governs whether any page can see anything is established here
+ * and stated once.
  *
- * Finance sat under Evidence, which it never was: it reports on money rather
- * than telling you what two people said to each other. It now sits with
- * Revenue, which is the screen that says how little of that money is ours.
- *
- * Needs attention comes first and stays first. The faults under Health are the
- * ones nothing else will ever tell you about -- the rest of the console looks
- * perfectly healthy while they are happening.
- *
- * Escrow release is not here and never will be: it belongs to the renter, in
- * the app. This console reports on money; it does not move it.
+ * Before this, every page discovered on its own that it could not read its
+ * tables and said so in red. Fifteen red boxes, all of them the same missing
+ * key, and none of them saying so -- which is worse than one, because a console
+ * covered in errors is a console nobody reads errors on. Red has to keep
+ * meaning "something is wrong here", and it cannot if it is also the colour of
+ * an unfinished setup step.
  */
-
-const GROUPS = [
-  {
-    title: 'Needs attention',
-    items: [
-      { href: '/', label: 'Overview', Icon: IconOverview },
-      { href: '/health', label: 'Health', Icon: IconHealth },
-      { href: '/verifications', label: 'Verifications', Icon: IconVerify },
-      { href: '/payouts', label: 'Payouts', Icon: IconPayouts },
-      { href: '/reports', label: 'Reports', Icon: IconReports },
-      { href: '/refunds', label: 'Refunds', Icon: IconRefunds },
-    ],
-  },
-  {
-    title: 'Marketplace',
-    items: [
-      { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
-      { href: '/listings', label: 'Listings', Icon: IconListings },
-      { href: '/bookings', label: 'Bookings', Icon: IconBookings },
-      // Sits with the marketplace rather than under Evidence: this is a report
-      // on where supply comes from, not a record of what somebody said.
-      { href: '/acquisition', label: 'Acquisition', Icon: IconAcquisition },
-    ],
-  },
-  {
-    title: 'Money',
-    items: [
-      { href: '/finance', label: 'Finance', Icon: IconFinance },
-      { href: '/revenue', label: 'Revenue', Icon: IconRevenue },
-    ],
-  },
-  {
-    title: 'Evidence',
-    items: [
-      { href: '/messages', label: 'Messages', Icon: IconMessages },
-      { href: '/reviews', label: 'Reviews', Icon: IconReviews },
-      { href: '/marketing', label: 'Marketing', Icon: IconMarketing },
-    ],
-  },
-] as const;
-
 export function Shell({
   children,
   badges,
@@ -92,8 +26,6 @@ export function Shell({
   /** Counts of things needing attention, keyed by href. */
   badges?: Record<string, number>;
 }) {
-  const pathname = usePathname();
-
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -105,30 +37,18 @@ export function Shell({
           </span>
         </div>
 
-        <nav className="nav">
-          {GROUPS.map((group) => (
-            <div className="nav-group" key={group.title}>
-              <div className="nav-title">{group.title}</div>
-              {group.items.map(({ href, label, Icon }) => {
-                const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
-                const count = badges?.[href] ?? 0;
-                return (
-                  <Link key={href} href={href} className={active ? 'active' : undefined}>
-                    <Icon />
-                    <span className="nav-label">{label}</span>
-                    {/* Health counts faults, not chores. Red says the number
-                        beside it is money at risk rather than a queue. */}
-                    {count > 0 ? (
-                      <span className={href === '/health' ? 'pill bad' : 'pill'}>{count}</span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <Nav badges={badges} />
 
         <div className="sidebar-foot">
+          {/* Which key the console is holding, always visible rather than
+              discovered per page. Green is not decoration here: it is the
+              difference between an empty table meaning "nothing happened" and
+              meaning "you cannot see it". */}
+          <div className={hasServiceRole ? 'keystate is-ok' : 'keystate is-limited'}>
+            <span className="keystate-dot" />
+            {hasServiceRole ? 'Full read access' : 'Limited: public key'}
+          </div>
+
           <ThemeToggle />
           <form action="/api/logout" method="post">
             <button
@@ -141,7 +61,40 @@ export function Shell({
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main">
+        {!hasServiceRole ? <SetupBanner /> : null}
+        {children}
+      </main>
+    </div>
+  );
+}
+
+/**
+ * Said once, at the top of every page, in the tone of an unfinished setup step
+ * rather than a failure.
+ *
+ * Because that is what it is. Nothing is broken: a key has not been pasted in
+ * yet, and until it is, Postgres answers a blocked SELECT with an empty array
+ * rather than an error -- so pages show a clean, plausible "nothing here" that
+ * is indistinguishable from the truth and wrong.
+ */
+function SetupBanner() {
+  return (
+    <div className="setup">
+      <div className="setup-mark">1</div>
+      <div className="setup-body">
+        <strong>One key left to paste, and then this console can see everything.</strong>
+        <p>
+          It is authenticating with the publishable key — the same one inside the app — so
+          row-level security hides most tables from it. Empty tables and load errors below are
+          that, not missing data.
+        </p>
+        <p className="setup-how">
+          Supabase → Project Settings → API keys → copy the <strong>secret</strong> key, then set{' '}
+          <code>SUPABASE_SERVICE_ROLE_KEY</code> in <code>espace-admin/.env.local</code> and
+          restart. It is server-side only and never reaches a browser.
+        </p>
+      </div>
     </div>
   );
 }

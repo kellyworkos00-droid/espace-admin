@@ -13,8 +13,10 @@ import {
   personSearch,
   shortId,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { getBookings, getListings, getPayments, getPayouts, getProfiles } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -110,11 +112,7 @@ export default async function FinancePage({
         description="Where the platform's money is: taken, held, released to hosts, refunded and paid out."
       />
 
-      {payments.error ? (
-        <Notice tone="error" title="Could not load payments">
-          {payments.error}
-        </Notice>
-      ) : null}
+      <LoadError error={payments.error} what="payments" keyed={hasServiceRole} />
 
       <Notice tone="info" title="Records only">
         Escrow is released by the renter in the app when they confirm move-in, and refunds run

@@ -13,6 +13,7 @@ import {
   ago,
   kes,
   personIndex,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { runHealthChecks } from '@/lib/health';
@@ -58,18 +59,9 @@ export default async function OverviewPage() {
         description="Account verification waiting on you, the financial position, and anything blocking the platform."
       />
 
-      {error ? (
-        <Notice tone="error" title="Could not read the database">
-          {error}
-        </Notice>
-      ) : null}
-
-      {!hasServiceRole ? (
-        <Notice tone="warn" title="Running on the public key">
-          Actions that change data may be refused by row-level security. Add{' '}
-          <code>SUPABASE_SERVICE_ROLE_KEY</code> to <code>.env.local</code> and restart.
-        </Notice>
-      ) : null}
+      {/* The shell says why, once, above every page. Repeating it here was
+          the third telling on a screen that already had two. */}
+      <LoadError error={error} what="the database" keyed={hasServiceRole} />
 
       {urgentReports.length > 0 ? (
         <Notice

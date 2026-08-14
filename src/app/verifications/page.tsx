@@ -7,11 +7,11 @@ import {
   Metric,
   Notice,
   PageHead,
-  ServiceRoleRequired,
   Table,
   ago,
   shortId,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getProfiles, getVerifications, signedDocUrl } from '@/lib/queries';
@@ -88,18 +88,14 @@ export default async function VerificationsPage({
         description="Identity submissions awaiting a decision. Approving here is the only thing that grants the verified badge."
       />
 
-      {!hasServiceRole ? <ServiceRoleRequired reads="verification_requests" /> : null}
-
       {missingTable ? (
         <Notice tone="warn" title="Verification table not created yet">
           Run <code>SUPABASE_VERIFICATION.sql</code> against your Supabase project. Until then the
           app cannot submit documents and there is nothing to review.
         </Notice>
-      ) : requests.error ? (
-        <Notice tone="error" title="Could not load verifications">
-          {requests.error}
-        </Notice>
-      ) : null}
+      ) : (
+        <LoadError error={requests.error} what="verifications" keyed={hasServiceRole} />
+      )}
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric

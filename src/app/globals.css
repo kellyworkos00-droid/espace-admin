@@ -55,16 +55,30 @@
   --bad-soft: #fdf1f1;
   --bad-line: #f2d3d4;
 
+  /* Three weights of depth, not one. A card at rest, a card under the cursor,
+     and something floating over the page are three different distances, and
+     one shadow for all three is what makes an interface look flat and printed
+     rather than built. */
   --shadow-sm: 0 1px 2px rgba(8, 32, 27, 0.05);
+  --shadow-md: 0 4px 14px -4px rgba(8, 32, 27, 0.12), 0 1px 2px rgba(8, 32, 27, 0.05);
   --shadow-lg: 0 18px 44px -12px rgba(8, 32, 27, 0.24);
 
+  --radius-sm: 9px;
   --radius: 12px;
   --radius-lg: 16px;
+
+  /* One scale, so nothing on any page invents a size between two of these. */
+  --t-micro: 10.5px;
+  --t-small: 12px;
+  --t-body: 13.5px;
+  --t-lead: 15px;
+  --t-title: 28px;
+  --t-figure: 30px;
 
   --sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
 
-  --sidebar-w: 246px;
+  --sidebar-w: 258px;
 }
 
 /* The OS preference is the default signal. */
@@ -106,6 +120,7 @@
     --bad-line: #5a282b;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.66);
   }
 }
@@ -149,6 +164,7 @@
   --bad-line: #5a282b;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.66);
 }
 
@@ -163,7 +179,18 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Every figure in this console lines up in a column with another figure, so
+   proportional digits are simply wrong here -- a 1 narrower than a 7 makes two
+   payouts of the same length look different. */
+.metric .value,
+.num,
+.count,
+.pill,
+td.num,
+.mono { font-variant-numeric: tabular-nums; }
 
 a { color: inherit; text-decoration: none; }
 
@@ -201,17 +228,18 @@ a { color: inherit; text-decoration: none; }
 
 .brand { display: flex; align-items: center; gap: 10px; padding: 2px 8px 0; }
 .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--brand);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(150deg, var(--brand-hover), var(--brand));
   color: var(--brand-ink);
   display: grid;
   place-items: center;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 17px;
   letter-spacing: -0.5px;
   flex-shrink: 0;
+  box-shadow: var(--shadow-md);
 }
 .brand-name { font-size: 15px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
 .brand-name small {
@@ -235,9 +263,10 @@ a { color: inherit; text-decoration: none; }
 }
 
 .nav a {
-  padding: 8px 10px;
-  border-radius: 9px;
-  font-size: 13.5px;
+  position: relative;
+  padding: 8px 10px 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-body);
   font-weight: 600;
   color: var(--body);
   display: flex;
@@ -245,11 +274,25 @@ a { color: inherit; text-decoration: none; }
   gap: 10px;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.75; }
+.nav a svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
 .nav-label { flex: 1; min-width: 0; }
 .nav a:hover { background: var(--sunken); color: var(--ink); }
+.nav a:hover svg { opacity: 1; }
 .nav a.active { background: var(--brand-soft); color: var(--brand); font-weight: 800; }
 .nav a.active svg { opacity: 1; }
+/* A bar in the margin as well as a tint. Where you are is the one thing a
+   sidebar has to answer without being read, and colour alone does not answer
+   it for everyone. */
+.nav a.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand);
+}
 
 .nav .pill {
   background: var(--warn-soft);
@@ -261,6 +304,22 @@ a { color: inherit; text-decoration: none; }
   font-variant-numeric: tabular-nums;
 }
 .nav .pill.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* Which key the console is holding. Small, permanent, and the answer to
+   "is this table empty, or am I just not allowed to see it". */
+.keystate {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--t-small);
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.keystate-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.keystate.is-ok { color: var(--good); background: var(--good-soft); border-color: var(--good-line); }
+.keystate.is-limited { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
 
 .sidebar-foot {
   border-top: 1px solid var(--line-soft);
@@ -288,7 +347,7 @@ a { color: inherit; text-decoration: none; }
 .theme-toggle:hover { color: var(--ink); }
 .theme-toggle svg { width: 15px; height: 15px; }
 
-.main { flex: 1; min-width: 0; padding: 24px 28px 64px; max-width: 1500px; }
+.main { flex: 1; min-width: 0; padding: 26px 30px 72px; max-width: 1520px; }
 
 /* ---------- page head ---------- */
 
@@ -299,8 +358,21 @@ a { color: inherit; text-decoration: none; }
   gap: 18px;
   margin-bottom: 20px;
 }
-.page-head h1 { font-size: 23px; font-weight: 800; letter-spacing: -0.6px; margin: 0; text-wrap: balance; }
-.page-head p { margin: 5px 0 0; color: var(--body); max-width: 64ch; font-size: 13.5px; }
+.page-head h1 {
+  font-size: var(--t-title);
+  font-weight: 800;
+  letter-spacing: -1px;
+  margin: 0;
+  text-wrap: balance;
+  line-height: 1.12;
+}
+.page-head p {
+  margin: 7px 0 0;
+  color: var(--body);
+  max-width: 66ch;
+  font-size: var(--t-body);
+  line-height: 1.6;
+}
 
 .section-title {
   font-size: 12px;
@@ -328,16 +400,29 @@ a { color: inherit; text-decoration: none; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 15px;
+  padding: 16px;
   box-shadow: var(--shadow-sm);
 }
 
-.grid { display: grid; gap: 12px; }
-.grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* auto-fit rather than a fixed count. Four fixed columns held their width on a
+   laptop by squeezing "KES 1,284,000" into 140px and wrapping it mid-figure;
+   these reflow to three or two instead, which is what a smaller screen
+   actually wants. */
+.grid { display: grid; gap: 13px; }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
 
-.metric { position: relative; overflow: hidden; }
+.metric {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 104px;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.metric:hover { box-shadow: var(--shadow-md); border-color: var(--line); }
+
 /* The stripe puts state in form as well as colour, so a figure that needs
    attention is visible before the figure itself is read. */
 .metric::before {
@@ -354,22 +439,39 @@ a { color: inherit; text-decoration: none; }
 .metric.is-warn::before { background: var(--warn); }
 .metric.is-bad::before { background: var(--bad); }
 
+/* And a wash behind it, so a toned card reads as a different kind of thing
+   from across the desk rather than only on inspection. Kept faint: four of
+   these in a row must still look like one set of figures. */
+.metric.is-good { background: linear-gradient(180deg, var(--good-soft), var(--surface) 62%); }
+.metric.is-info { background: linear-gradient(180deg, var(--info-soft), var(--surface) 62%); }
+.metric.is-warn { background: linear-gradient(180deg, var(--warn-soft), var(--surface) 62%); }
+.metric.is-bad  { background: linear-gradient(180deg, var(--bad-soft),  var(--surface) 62%); }
+
 .metric .label {
-  font-size: 11px;
+  font-size: var(--t-micro);
   font-weight: 800;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   color: var(--muted);
 }
 .metric .value {
-  font-size: 25px;
+  font-size: var(--t-figure);
   font-weight: 800;
-  letter-spacing: -0.9px;
-  margin-top: 6px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  letter-spacing: -1.3px;
+  margin-top: auto;
+  padding-top: 10px;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
 }
-.metric .hint { font-size: 12px; color: var(--body); margin-top: 4px; }
+.metric.is-good .value { color: var(--good); }
+.metric.is-warn .value { color: var(--warn); }
+.metric.is-bad .value { color: var(--bad); }
+.metric .hint {
+  font-size: var(--t-small);
+  color: var(--body);
+  margin-top: 5px;
+  line-height: 1.45;
+}
 
 /* ---------- toolbar: search and filters ---------- */
 
@@ -442,7 +544,7 @@ a { color: inherit; text-decoration: none; }
 .table-wrap {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
@@ -452,9 +554,9 @@ table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13
 
 th {
   text-align: left;
-  padding: 10px 14px;
-  font-size: 10.5px;
-  letter-spacing: 0.7px;
+  padding: 11px 16px;
+  font-size: var(--t-micro);
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   font-weight: 800;
   color: var(--muted);
@@ -469,7 +571,7 @@ th {
 }
 
 td {
-  padding: 11px 14px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--line-soft);
   vertical-align: middle;
   color: var(--ink);
@@ -484,8 +586,25 @@ td.nowrap { white-space: nowrap; }
 
 .mono { font-family: var(--mono); font-size: 11.5px; color: var(--body); letter-spacing: -0.2px; }
 
-.empty { padding: 44px 16px; text-align: center; color: var(--muted); font-size: 13.5px; }
-.empty strong { display: block; color: var(--body); margin-bottom: 4px; font-size: 14px; }
+/* An empty table is a real state, not a gap. Given the room to look
+   deliberate, so nobody wonders whether the page failed to load. */
+.empty {
+  padding: 56px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  max-width: 46ch;
+  margin: 0 auto;
+}
+.empty strong {
+  display: block;
+  color: var(--ink);
+  margin-bottom: 5px;
+  font-size: var(--t-lead);
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
 
 /* ---------- person cell ---------- */
 
@@ -559,8 +678,9 @@ td.nowrap { white-space: nowrap; }
   gap: 7px;
   transition: background 0.12s ease;
 }
-.btn.primary { background: var(--brand); color: var(--brand-ink); }
+.btn.primary { background: var(--brand); color: var(--brand-ink); box-shadow: var(--shadow-sm); }
 .btn.primary:hover { background: var(--brand-hover); }
+.btn:active { transform: translateY(0.5px); }
 .btn.ghost { background: var(--sunken); color: var(--ink); border-color: var(--line); }
 .btn.ghost:hover { background: var(--line-soft); }
 .btn.danger { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-line); }
@@ -583,24 +703,110 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 
 /* ---------- notices ---------- */
 
+/*
+ * A rule in the margin rather than a tinted slab.
+ *
+ * These used to be filled boxes with a coloured border and coloured body text,
+ * and a page carrying three of them was three quarters shouting. The colour is
+ * now spent where it does the work -- one bar and the heading -- and the
+ * sentence underneath is ordinary body text, which is the only way a notice
+ * long enough to be useful is also short enough to be read.
+ */
 .notice {
+  position: relative;
   border-radius: var(--radius);
-  padding: 13px 15px;
-  font-size: 13.5px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  border: 1px solid;
+  padding: 13px 16px 13px 17px;
+  font-size: var(--t-body);
+  font-weight: 500;
+  line-height: 1.55;
+  margin-bottom: 14px;
+  color: var(--body);
+  border: 1px solid var(--line-soft);
   display: flex;
   gap: 11px;
   align-items: flex-start;
+  overflow: hidden;
+}
+.notice::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
 }
 .notice-body { min-width: 0; }
-.notice > svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 1px; }
-.notice.warn { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
-.notice.error { background: var(--bad-soft); border-color: var(--bad-line); color: var(--bad); }
-.notice.info { background: var(--info-soft); border-color: var(--info-line); color: var(--info); }
-.notice strong { display: block; margin-bottom: 3px; }
-.notice a { text-decoration: underline; font-weight: 800; }
+.notice > svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.notice strong { display: block; margin-bottom: 3px; font-weight: 800; font-size: 13.5px; }
+.notice code { font-size: 12px; }
+.notice a { text-decoration: underline; font-weight: 800; color: inherit; }
+
+.notice.warn { background: var(--warn-soft); }
+.notice.warn::before { background: var(--warn); }
+.notice.warn > svg, .notice.warn strong { color: var(--warn); }
+
+.notice.error { background: var(--bad-soft); }
+.notice.error::before { background: var(--bad); }
+.notice.error > svg, .notice.error strong { color: var(--bad); }
+
+.notice.info { background: var(--info-soft); }
+.notice.info::before { background: var(--info); }
+.notice.info > svg, .notice.info strong { color: var(--info); }
+
+/*
+ * Setup, which is not an error.
+ *
+ * Deliberately not a notice: it is the one thing standing between this console
+ * and all of its data, so it gets the brand rather than a status colour, and a
+ * numbered mark rather than a warning triangle. Nothing is wrong -- a step has
+ * not been done.
+ */
+.setup {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: linear-gradient(135deg, var(--brand-soft), var(--surface) 78%);
+  border: 1px solid var(--good-line);
+  border-radius: var(--radius-lg);
+  padding: 17px 19px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.setup-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.setup-body { min-width: 0; }
+.setup-body strong {
+  display: block;
+  font-size: var(--t-lead);
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.setup-body p {
+  margin: 6px 0 0;
+  color: var(--body);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  max-width: 78ch;
+}
+.setup-how { color: var(--muted) !important; font-size: var(--t-small) !important; }
+.setup code {
+  background: var(--sunken);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
 
 /* ---------- conversation (dispute evidence) ---------- */
 
@@ -701,4 +907,59 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
   .search { max-width: none; }
   .result-count { margin-left: 0; }
   .msg { max-width: 88%; }
+}
+
+/* ---------- narrower than a desk ---------- */
+
+/*
+ * A fixed 258px sidebar and a table both need room, and below about 1000px
+ * there is not enough for the two of them. The sidebar becomes a strip across
+ * the top rather than compressing every column beneath it -- a payout table
+ * squeezed to 60% of a laptop is unreadable, and the nav is the part that can
+ * afford to change shape.
+ */
+@media (max-width: 1000px) {
+  .shell { flex-direction: column; }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    overflow-x: auto;
+  }
+
+  .brand { padding: 0; flex-shrink: 0; }
+  .brand-name small { display: none; }
+
+  .nav { flex-direction: row; gap: 10px; overflow: visible; }
+  .nav-group { flex-direction: row; gap: 3px; }
+  .nav-title { display: none; }
+  .nav a { white-space: nowrap; padding: 7px 11px; }
+  .nav a.active::before { display: none; }
+
+  .sidebar-foot {
+    border-top: none;
+    padding-top: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .keystate .keystate-text { display: none; }
+
+  .main { padding: 20px 16px 56px; }
+  .page-head h1 { font-size: 23px; }
+}
+
+@media (max-width: 620px) {
+  .page-head { flex-direction: column; }
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .search { max-width: none; }
+  .result-count { margin-left: 0; }
 }

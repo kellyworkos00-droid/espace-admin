@@ -13,10 +13,11 @@ import {
   personIndex,
   personSearch,
   when,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getPayouts, getProfiles } from '@/lib/queries';
-import { sb } from '@/lib/supabase';
+import { hasServiceRole, sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,11 +99,7 @@ export default async function PayoutsPage({
         description="Hosts requesting their escrow-released earnings. Send the M-Pesa transfer, then record it here."
       />
 
-      {payouts.error ? (
-        <Notice tone="error" title="Could not load payouts">
-          {payouts.error}
-        </Notice>
-      ) : null}
+      <LoadError error={payouts.error} what="payouts" keyed={hasServiceRole} />
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric

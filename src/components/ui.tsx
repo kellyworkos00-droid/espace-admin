@@ -241,28 +241,49 @@ export function SectionTitle({ children, count }: { children: ReactNode; count?:
 }
 
 /**
- * The tables row-level security hides from the anon key.
+ * Does this failure just mean "no key yet"?
  *
- * PostgREST answers a blocked SELECT with an empty array rather than an error,
- * so a page reading one of these shows a clean, plausible "nothing here" --
- * indistinguishable from the truth, and wrong. Reports, verifications and the
- * SMS log have all been reading as empty for exactly this reason.
- *
- * Named rather than inferred, because a page that quietly shows nothing is how
- * a missing key survives for weeks.
+ * PostgREST reports a blocked read as 401/403, or as one of Postgres's own
+ * permission codes. When the console is holding the publishable key, every
+ * protected table answers that way at once -- so the message is true, useless,
+ * and repeated on a dozen pages.
  */
-export function ServiceRoleRequired({ reads }: { reads: string }) {
+function isPermissionShaped(error: string) {
+  return /\b(401|403)\b|PGRST301|PGRST302|42501|permission denied|JWT/i.test(error);
+}
+
+/**
+ * A page saying it could not read its own table.
+ *
+ * Silent when the shell has already given the reason. Red has to keep meaning
+ * "something is wrong here", and it cannot if it is also the colour of a setup
+ * step that has not been done yet -- a console covered in red is a console
+ * where nobody reads the red.
+ *
+ * Everything else still shows in full. A table that is genuinely missing, or a
+ * query that is genuinely malformed, is exactly what this is for.
+ */
+export function LoadError({
+  error,
+  what,
+  hint,
+  keyed = true,
+}: {
+  error: string | null | undefined;
+  /** What could not be read, in the words on the page. */
+  what: string;
+  /** Anything worth adding when the cause is not the key. */
+  hint?: ReactNode;
+  /** Whether the console currently holds the service key. */
+  keyed?: boolean;
+}) {
+  if (!error) return null;
+  if (!keyed && isPermissionShaped(error)) return null;
+
   return (
-    <Notice tone="error" title="This page cannot see its data yet">
-      {reads} {reads.includes(' and ') ? 'are' : 'is'} protected by row-level security, and the
-      console is authenticating with the publishable key — the same one inside the app. Postgres
-      returns an empty result rather than an error, so this page shows nothing whether or not there
-      is anything to show.
-      <div style={{ fontWeight: 600, marginTop: 8 }}>
-        Fix: Supabase → Project Settings → API keys → copy the <strong>secret</strong> key, and set{' '}
-        <code>SUPABASE_SERVICE_ROLE_KEY</code> in <code>espace-admin/.env.local</code>. The console
-        already prefers it when present. It is server-side only and never reaches a browser.
-      </div>
+    <Notice tone="error" title={`Could not load ${what}`}>
+      {error}
+      {hint ? <div style={{ fontWeight: 600, marginTop: 6 }}>{hint}</div> : null}
     </Notice>
   );
 }

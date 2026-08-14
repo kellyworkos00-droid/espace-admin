@@ -10,8 +10,10 @@ import {
   ago,
   personIndex,
   personSearch,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
+import { hasServiceRole } from '@/lib/supabase';
 import { getBookings, getListings, getProfiles, getReviews } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -88,14 +90,12 @@ export default async function ReviewsPage() {
         description="Every review, and whether there is a real booking behind it. Ratings decide what the app ranks first, so a bought review moves a home up the feed."
       />
 
-      {reviews.error ? (
-        <Notice tone="error" title="Could not load reviews">
-          {reviews.error}
-          <div style={{ fontWeight: 600, marginTop: 6 }}>
-            If this names the table, <code>SUPABASE_REVIEWS_SETUP.sql</code> has not been run yet.
-          </div>
-        </Notice>
-      ) : null}
+      <LoadError
+        error={reviews.error}
+        what="reviews"
+        keyed={hasServiceRole}
+        hint={<>If this names the table, <code>SUPABASE_REVIEWS_SETUP.sql</code> has not been run yet.</>}
+      />
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric label="Reviews" value={reviews.rows.length} />

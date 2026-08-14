@@ -13,10 +13,11 @@ import {
   personIndex,
   personSearch,
   shortId,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getListings, getProfiles } from '@/lib/queries';
-import { sb } from '@/lib/supabase';
+import { hasServiceRole, sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,11 +102,7 @@ export default async function ListingsPage() {
         description="Every space on the marketplace. Assign owners, pause anything that should not be bookable, and control the verified badge."
       />
 
-      {listings.error ? (
-        <Notice tone="error" title="Could not load listings">
-          {listings.error}
-        </Notice>
-      ) : null}
+      <LoadError error={listings.error} what="listings" keyed={hasServiceRole} />
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric label="Total listings" value={listings.rows.length} />

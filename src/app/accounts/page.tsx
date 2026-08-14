@@ -13,10 +13,11 @@ import {
   ago,
   kes,
   personIndex,
+  LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
 import { getBookings, getListings, getPayouts, getProfiles } from '@/lib/queries';
-import { sb } from '@/lib/supabase';
+import { hasServiceRole, sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,11 +159,7 @@ export default async function AccountsPage({
         description="Who each account is, and whether they can post. Verification gates posting and payouts in the app, so it is the control that matters most."
       />
 
-      {profiles.error ? (
-        <Notice tone="error" title="Could not load accounts">
-          {profiles.error}
-        </Notice>
-      ) : null}
+      <LoadError error={profiles.error} what="accounts" keyed={hasServiceRole} />
 
       {/* Toggling verification here bypasses the documents entirely, so the
           reviewed route is pointed at first. */}
