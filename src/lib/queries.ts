@@ -31,6 +31,12 @@ export type PaymentRow = {
 };
 
 export type BookingRow = {
+  /** What E Space earns on this booking, priced when the booking was made. */
+  commission_kes?: number | null;
+  /** The rate that produced it, kept so an old figure can still be explained. */
+  commission_rate?: number | null;
+  commission_status?: 'pending' | 'collected' | 'waived' | null;
+  commission_collected_at?: string | null;
   id: string;
   listing_id: string | null;
   guest_profile_id: string | null;

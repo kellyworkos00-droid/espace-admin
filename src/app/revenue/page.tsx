@@ -103,14 +103,29 @@ export default async function RevenuePage({
   const dueOnHeld = (heldKes * rate) / 100;
 
   /**
-   * What was actually kept.
+   * What the bookings themselves say, now that they carry it.
    *
-   * A separated commission is visible as a payout smaller than the escrow that
-   * funded it. Nothing in the data records one, so this is zero -- derived,
-   * not assumed, so it starts reporting the moment a split exists.
+   * This used to be a projection: bookings multiplied by a rate the reader
+   * chose from a dropdown. Useful for asking "what if", useless as a ledger,
+   * because nothing recorded what any particular booking actually earned.
+   * Bookings now carry commission_kes and the rate that produced it, so these
+   * are read rather than modelled -- and a rate change next year does not
+   * silently rewrite last year.
    */
-  const collected = 0;
-  const shortfall = dueOnReleased - collected;
+  const live = bookings.rows.filter((row) => row.status !== 'cancelled');
+  const earnedKes = live.reduce((total, row) => total + Number(row.commission_kes ?? 0), 0);
+  const collectedKes = live
+    .filter((row) => row.commission_status === 'collected')
+    .reduce((total, row) => total + Number(row.commission_kes ?? 0), 0);
+  const outstandingKes = live
+    .filter((row) => (row.commission_status ?? 'pending') === 'pending')
+    .reduce((total, row) => total + Number(row.commission_kes ?? 0), 0);
+  const unpriced = live.filter(
+    (row) => row.commission_kes == null && Number(row.amount_kes ?? 0) > 0
+  ).length;
+
+  const collected = collectedKes;
+  const shortfall = earnedKes - collectedKes;
 
   const byMonth = new Map<string, { released: number; count: number }>();
   for (const row of released) {
@@ -153,15 +168,42 @@ export default async function RevenuePage({
         </Notice>
       ) : null}
 
-      {/* The finding, before any figure that depends on it. */}
-      <Notice tone="error" title="No commission is being separated">
-        Checked against the live eConfirm API on every escrow the app has created. Both completed
-        escrows released the <strong>full</strong> amount to the host — &ldquo;KES 100.00 was sent to
-        the recipient&rdquo; against a KES 100 escrow — and no transaction record carries a fee,
-        commission or net-amount field. Our create payload sends the amount, the receiver&rsquo;s
-        phone and the seller&rsquo;s email; there is no field in it that asks for a share. Until
-        eConfirm is configured to split, every shilling below stays uncollected.
+      {/* What this screen is and is not. */}
+      <Notice tone="info" title="eConfirm separates the funds; this is our record of it">
+        The split happens on eConfirm&rsquo;s side when an escrow is released, so nothing here moves
+        money. What this screen does is keep our own account of it: every booking now records what it
+        earns and the rate that produced it, marked <strong>collected</strong> the moment its escrow
+        is released and <strong>outstanding</strong> until then. Worth reconciling against
+        eConfirm&rsquo;s own statements — two records of the same money that have never been compared
+        are two records nobody should trust.
       </Notice>
+
+      {/* The recorded ledger, before any of the projections below it. */}
+      <div className="grid cols-4" style={{ marginBottom: 16 }}>
+        <Metric
+          label="Commission earned"
+          value={kes(earnedKes)}
+          hint={`Recorded on ${live.length} booking${live.length === 1 ? '' : 's'}`}
+        />
+        <Metric
+          label="Collected"
+          value={kes(collectedKes)}
+          tone={collectedKes > 0 ? 'good' : 'bad'}
+          hint={collectedKes === 0 ? 'Nothing has been separated yet' : 'Marked collected'}
+        />
+        <Metric
+          label="Outstanding"
+          value={kes(outstandingKes)}
+          tone={outstandingKes > 0 ? 'bad' : 'good'}
+          hint="Earned, not received"
+        />
+        <Metric
+          label="Unpriced bookings"
+          value={unpriced}
+          tone={unpriced > 0 ? 'warn' : 'good'}
+          hint={unpriced > 0 ? 'Made before commission was recorded' : 'Every booking is priced'}
+        />
+      </div>
 
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric

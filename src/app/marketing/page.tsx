@@ -17,6 +17,7 @@ type ProfileRow = {
   phone_verified: boolean | null;
   role: string | null;
   marketing_sms_consent: boolean | null;
+  marketing_opted_out_at: string | null;
 };
 
 type CampaignRow = {
@@ -52,19 +53,27 @@ const AUDIENCES: Record<string, { label: string; match: (p: ProfileRow) => boole
  * Every message carries an opt-out line, appended by the sender rather than
  * left to whoever writes the copy. Consent has to be as easy to withdraw as it
  * was to give, and a message with no way out is what gets a sender id blocked.
+ *
+ * And withdrawing it works: marketing_opted_out_at excludes somebody from every
+ * audience here regardless of what their consent flag still says. Consent is
+ * only the first of the two questions -- the second is whether they have since
+ * changed their mind, and asking only the first is how a service keeps
+ * messaging the person who asked it to stop.
  */
 export default async function MarketingPage() {
   await requireAdmin();
 
   const [profiles, campaigns] = await Promise.all([
     sb<ProfileRow>('profiles', {
-      query: 'select=id,full_name,phone,phone_verified,role,marketing_sms_consent',
+      query:
+        'select=id,full_name,phone,phone_verified,role,marketing_sms_consent,marketing_opted_out_at',
     }),
     sb<CampaignRow>('sms_campaigns', { query: 'select=*&order=created_at.desc&limit=50' }),
   ]);
 
   const all = profiles.rows ?? [];
-  const consented = all.filter((p) => p.marketing_sms_consent && p.phone);
+  const consented = all.filter((p) => p.marketing_sms_consent && p.phone && !p.marketing_opted_out_at);
+  const optedOut = all.filter((p) => p.marketing_opted_out_at);
   const withNumber = all.filter((p) => p.phone);
 
   async function send(formData: FormData) {
@@ -83,9 +92,13 @@ export default async function MarketingPage() {
     const body = withOptOut(rawBody);
 
     const audiences = await sb<ProfileRow>('profiles', {
+      // The opt-out filter belongs in the query rather than in the loop below.
+      // A filter applied after the rows arrive is one somebody can later move,
+      // reorder or short-circuit; this one cannot be got past.
       query:
-        'select=id,full_name,phone,phone_verified,role,marketing_sms_consent' +
-        '&marketing_sms_consent=eq.true&phone=not.is.null',
+        'select=id,full_name,phone,phone_verified,role,marketing_sms_consent,marketing_opted_out_at' +
+        '&marketing_sms_consent=eq.true&phone=not.is.null' +
+        '&marketing_opted_out_at=is.null',
     });
 
     const rule = AUDIENCES[audience] ?? AUDIENCES.consented;
@@ -170,10 +183,16 @@ export default async function MarketingPage() {
       <div className="grid cols-4" style={{ marginBottom: 16 }}>
         <Metric label="Opted in" value={consented.length} tone={consented.length > 0 ? 'good' : undefined} hint="Reachable from this page" />
         <Metric label="Have a number" value={withNumber.length} hint={`${all.length} accounts in total`} />
-        <Metric label="Campaigns sent" value={(campaigns.rows ?? []).filter((c) => c.status === 'sent').length} />
+        <Metric
+          label="Opted out"
+          value={optedOut.length}
+          tone={optedOut.length > 0 ? 'warn' : undefined}
+          hint="Excluded from every audience"
+        />
         <Metric
           label="Messages delivered"
           value={(campaigns.rows ?? []).reduce((sum, c) => sum + (c.delivered ?? 0), 0)}
+          hint={`${(campaigns.rows ?? []).filter((c) => c.status === 'sent').length} campaigns sent`}
         />
       </div>
 
@@ -251,11 +270,13 @@ export default async function MarketingPage() {
       </DataTable>
 
       <div style={{ marginTop: 20 }}>
-        <Notice tone="warn" title="STOP replies are not handled yet">
-          Every message says to reply STOP, and nothing is currently listening for the reply. Until an
-          Infobip inbound webhook is wired to set marketing_opted_out_at, somebody who opts out will
-          keep receiving messages — which is the exact complaint that gets a sender id blocked. Worth
-          building before the first campaign goes to more than a handful of people.
+        <Notice tone="warn" title="STOP replies still have to be entered by hand">
+          An opt-out is honoured the moment it is recorded: anybody with
+          <code>marketing_opted_out_at</code> set is excluded from every audience on this page,
+          whatever their consent flag still says. What is missing is the part that records it —
+          nothing is listening for the STOP reply, so until an Infobip inbound webhook is wired up,
+          somebody who opts out stays reachable until a person sets that column for them. Worth
+          building before a campaign goes to more than a handful of people.
         </Notice>
       </div>
     </Shell>

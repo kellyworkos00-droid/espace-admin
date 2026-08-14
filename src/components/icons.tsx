@@ -113,6 +113,33 @@ export function IconMessages(p: IconProps) {
   );
 }
 
+/**
+ * A funnel, for the page that is one.
+ *
+ * Acquisition shared the bar chart with Revenue, which put two identical
+ * glyphs in one sidebar. The icon is the fast scan target -- the label is read
+ * second -- so two rows drawn the same way cost exactly what the icons were
+ * there to save.
+ */
+export function IconAcquisition(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M3.5 4.5h17l-6.6 7.7v6.4l-3.8 1.9v-8.3z" />
+    </Svg>
+  );
+}
+
+/** A speaker with waves: sending outward, as against Messages coming in. */
+export function IconMarketing(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M4 9.5v5h3.2l5 3.6V5.9l-5 3.6z" />
+      <path d="M16.4 8.4a5 5 0 010 7.2" />
+      <path d="M19.2 5.9a8.5 8.5 0 010 12.2" />
+    </Svg>
+  );
+}
+
 export function IconReviews(p: IconProps) {
   return (
     <Svg {...p}>

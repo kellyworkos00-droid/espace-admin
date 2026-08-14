@@ -7,9 +7,11 @@ import { ReactNode } from 'react';
 import {
   IconAccounts,
   IconBookings,
+  IconAcquisition,
   IconFinance,
   IconHealth,
   IconListings,
+  IconMarketing,
   IconMessages,
   IconOverview,
   IconPayouts,
@@ -60,6 +62,9 @@ const GROUPS = [
       { href: '/accounts', label: 'Accounts', Icon: IconAccounts },
       { href: '/listings', label: 'Listings', Icon: IconListings },
       { href: '/bookings', label: 'Bookings', Icon: IconBookings },
+      // Sits with the marketplace rather than under Evidence: this is a report
+      // on where supply comes from, not a record of what somebody said.
+      { href: '/acquisition', label: 'Acquisition', Icon: IconAcquisition },
     ],
   },
   {
@@ -74,7 +79,7 @@ const GROUPS = [
     items: [
       { href: '/messages', label: 'Messages', Icon: IconMessages },
       { href: '/reviews', label: 'Reviews', Icon: IconReviews },
-      { href: '/marketing', label: 'Marketing', Icon: IconMessages },
+      { href: '/marketing', label: 'Marketing', Icon: IconMarketing },
     ],
   },
 ] as const;

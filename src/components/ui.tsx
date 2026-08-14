@@ -2,11 +2,20 @@ import { ReactNode } from 'react';
 
 import { IconAlert, IconInfo } from './icons';
 
-/** Money is always rendered through here, so no screen invents its own format. */
+/**
+ * Money is always rendered through here, so no screen invents its own format.
+ *
+ * The locale is named rather than left to the environment. `toLocaleString()`
+ * with no argument follows whatever locale the process happens to be in, and
+ * these pages are rendered on a server -- so the same figure could come back
+ * grouped as 28,000 in one place and 28.000 in another, with nobody able to see
+ * which from the screen. A number nobody can be sure how to read is worse in an
+ * accounts console than in most places.
+ */
 export function kes(value: number | null | undefined) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount)) return 'KES 0';
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return `KES ${Math.round(amount).toLocaleString('en-KE')}`;
 }
 
 export function when(value: string | null | undefined) {
@@ -27,7 +36,15 @@ export function ago(value: string | null | undefined) {
   const then = new Date(value).getTime();
   if (Number.isNaN(then)) return '—';
   const days = Math.floor((Date.now() - then) / 86_400_000);
-  if (days <= 0) return 'today';
+  // A date ahead of now used to read "today", which is how a check-in three
+  // weeks away looked like something that had already happened. Said plainly
+  // instead: this helper is used on future dates as well as past ones.
+  if (days < 0) {
+    const ahead = Math.abs(days);
+    if (ahead === 1) return 'tomorrow';
+    return ahead < 30 ? `in ${ahead} days` : `in ${Math.round(ahead / 30)} months`;
+  }
+  if (days === 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 30) return `${days} days ago`;
   const months = Math.round(days / 30);
