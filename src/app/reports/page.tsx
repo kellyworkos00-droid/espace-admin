@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { DataTable } from '@/components/data-table';
+import { BlockedNotice } from '@/components/blocked-notice';
 import { Shell } from '@/components/shell';
 import {
   Badge,
@@ -195,6 +196,7 @@ export default async function ReportsPage({
           <>
             <strong>Nothing with this status.</strong>
             Reports filed from the app land here.
+            <BlockedNotice what="listing reports" />
           </>
         }>
         {rows.map((row) => {

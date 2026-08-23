@@ -1,6 +1,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { AutoRefresh } from '@/components/auto-refresh';
+import { BlockedNotice } from '@/components/blocked-notice';
 import { Shell } from '@/components/shell';
 import { Badge, Empty, LoadError, Metric, PageHead, Table, ago, shortId, when } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
@@ -107,7 +108,10 @@ export default async function SupportPage({
 
           <Table head={['Raised', 'Who', 'What went wrong', 'Shots', 'Status', 'Action']}>
             {rows.length === 0 ? (
-              <Empty>Nothing waiting. That is the good outcome.</Empty>
+              <Empty>
+                Nothing waiting. That is the good outcome.
+                <BlockedNotice what="support tickets" />
+              </Empty>
             ) : (
               rows.map((ticket) => {
                 const who =
