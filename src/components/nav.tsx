@@ -18,6 +18,7 @@ import {
   IconReports,
   IconRevenue,
   IconReviews,
+  IconSupport,
   IconVerify,
 } from './icons';
 
@@ -52,6 +53,9 @@ const GROUPS = [
       { href: '/verifications', label: 'Verifications', Icon: IconVerify },
       { href: '/payouts', label: 'Payouts', Icon: IconPayouts },
       { href: '/reports', label: 'Reports', Icon: IconReports },
+      // Above refunds: somebody who cannot use the app is stuck right now,
+      // whereas a refund is a queue that can survive an hour.
+      { href: '/support', label: 'Support', Icon: IconSupport },
       { href: '/refunds', label: 'Refunds', Icon: IconRefunds },
     ],
   },

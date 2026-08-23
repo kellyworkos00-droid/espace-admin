@@ -216,3 +216,14 @@ export function IconInfo(p: IconProps) {
     </Svg>
   );
 }
+
+/** A life ring: help asked for, rather than a complaint filed about someone. */
+export function IconSupport(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.6" />
+      <path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" />
+    </Svg>
+  );
+}

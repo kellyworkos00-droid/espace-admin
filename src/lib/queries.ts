@@ -115,6 +115,45 @@ export function signedDocUrl(path: string) {
   return `${base}/storage/v1/object/authenticated/verification-docs/${path}?apikey=${key}`;
 }
 
+export type SupportTicketRow = {
+  id: string;
+  profile_id: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  issues: string[] | null;
+  description: string | null;
+  screenshot_paths: string[] | null;
+  app_version: string | null;
+  platform: string | null;
+  status: string;
+  admin_note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+};
+
+/**
+ * Help and support reports from the app.
+ *
+ * Oldest first within the open queue, for the same reason as payouts: somebody
+ * who wrote in on Monday has been waiting longer than somebody who wrote this
+ * morning, and newest-first quietly punishes patience.
+ */
+export async function getSupportTickets(status?: string) {
+  const filter = status && status !== 'all' ? `&status=eq.${status}` : '';
+  const order = status === 'resolved' || status === 'closed' ? 'desc' : 'asc';
+
+  return sb<SupportTicketRow>('support_tickets', {
+    query: `select=*&order=created_at.${order}&limit=200${filter}`,
+  });
+}
+
+/** Same reasoning as signedDocUrl: private bucket, console already behind a login. */
+export function supportShotUrl(path: string) {
+  const base = process.env.SUPABASE_URL ?? '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  return `${base}/storage/v1/object/authenticated/support-screenshots/${path}?apikey=${key}`;
+}
+
 /**
  * The payout queue.
  *

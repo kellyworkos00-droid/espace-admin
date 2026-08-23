@@ -822,61 +822,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 .notice.info::before { background: var(--info); }
 .notice.info > svg, .notice.info strong { color: var(--info); }
 
-/*
- * Setup, which is not an error.
- *
- * Deliberately not a notice: it is the one thing standing between this console
- * and all of its data, so it gets the brand rather than a status colour, and a
- * numbered mark rather than a warning triangle. Nothing is wrong -- a step has
- * not been done.
- */
-.setup {
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  background: linear-gradient(135deg, var(--brand-soft), var(--surface) 78%);
-  border: 1px solid var(--good-line);
-  border-radius: var(--radius-lg);
-  padding: 17px 19px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow-sm);
-}
-.setup-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: var(--brand);
-  color: var(--brand-ink);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-.setup-body { min-width: 0; }
-.setup-body strong {
-  display: block;
-  font-size: var(--t-lead);
-  font-weight: 800;
-  letter-spacing: -0.3px;
-  color: var(--ink);
-}
-.setup-body p {
-  margin: 6px 0 0;
-  color: var(--body);
-  font-size: var(--t-body);
-  line-height: 1.6;
-  max-width: 78ch;
-}
-.setup-how { color: var(--muted) !important; font-size: var(--t-small) !important; }
-.setup code {
-  background: var(--sunken);
-  border-radius: 5px;
-  padding: 1px 5px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-}
-
 /* ---------- conversation (dispute evidence) ---------- */
 
 .thread {
