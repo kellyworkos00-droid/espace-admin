@@ -77,6 +77,11 @@ export type ProfileRow = {
   verified: boolean | null;
   host_type?: string | null;
   created_at?: string | null;
+  phone?: string | null;
+  phone_verified?: boolean | null;
+  payout_phone?: string | null;
+  payout_name?: string | null;
+  profile_image_uri?: string | null;
 };
 
 export type VerificationRow = {
@@ -92,6 +97,7 @@ export type VerificationRow = {
   reviewer_note: string | null;
   submitted_at: string;
   reviewed_at: string | null;
+  attempt_count?: number | null;
 };
 
 /** Review queue, oldest first: the longest wait is dealt with first. */
@@ -102,17 +108,68 @@ export async function getVerifications(status?: string) {
   });
 }
 
+export type ConsentRow = {
+  profile_id: string;
+  policy_version: string;
+  granted_at: string;
+  withdrawn_at: string | null;
+  platform: string | null;
+};
+
+/** The DPA consent records, newest first. Readable only with the service key. */
+export async function getConsents() {
+  return sb<ConsentRow>('verification_consents', {
+    query:
+      'select=profile_id,policy_version,granted_at,withdrawn_at,platform&order=granted_at.desc&limit=500',
+  });
+}
+
 /**
- * A viewable link for a document in the private bucket.
+ * Short-lived links to objects in a private bucket, keyed by path.
  *
- * The bucket is private because these are identity papers, so the reviewer's
- * own key is what authorises the read. Passing the key in the URL keeps this to
- * a plain link, and the console is already behind a login.
+ * Minted here, on the server, with the service key in a header. The old links
+ * put the key itself in the URL (`?apikey=...`), which sent it to the browser
+ * inside the page HTML: with the service key set, that was the master key to
+ * the whole database sitting in every reviewer's history. They also did not
+ * work: storage answered 400 to them. A signed link carries only a token for
+ * one object, and expires.
+ *
+ * Empty without the service key, because the app's key is not allowed to read
+ * these buckets, deliberately. The caller says so on screen.
  */
-export function signedDocUrl(path: string) {
+export async function signedUrls(
+  bucket: string,
+  paths: (string | null | undefined)[],
+  expiresIn = 1800
+): Promise<Map<string, string>> {
+  const links = new Map<string, string>();
   const base = process.env.SUPABASE_URL ?? '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-  return `${base}/storage/v1/object/authenticated/verification-docs/${path}?apikey=${key}`;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+  const unique = [...new Set(paths.filter((path): path is string => Boolean(path)))];
+  if (!base || !key || unique.length === 0) return links;
+
+  try {
+    const response = await fetch(`${base}/storage/v1/object/sign/${bucket}`, {
+      method: 'POST',
+      headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresIn, paths: unique }),
+      cache: 'no-store',
+    });
+    if (!response.ok) return links;
+
+    const rows = (await response.json()) as {
+      path?: string | null;
+      signedURL?: string | null;
+      error?: string | null;
+    }[];
+    rows.forEach((row, index) => {
+      const path = row.path ?? unique[index];
+      if (path && row.signedURL) links.set(path, `${base}/storage/v1${row.signedURL}`);
+    });
+  } catch {
+    // An empty map reads as "no image" on screen, which is the truth.
+  }
+  return links;
 }
 
 export type SupportTicketRow = {
@@ -145,13 +202,6 @@ export async function getSupportTickets(status?: string) {
   return sb<SupportTicketRow>('support_tickets', {
     query: `select=*&order=created_at.${order}&limit=200${filter}`,
   });
-}
-
-/** Same reasoning as signedDocUrl: private bucket, console already behind a login. */
-export function supportShotUrl(path: string) {
-  const base = process.env.SUPABASE_URL ?? '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-  return `${base}/storage/v1/object/authenticated/support-screenshots/${path}?apikey=${key}`;
 }
 
 /**

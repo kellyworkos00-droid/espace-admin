@@ -1021,3 +1021,118 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
   font-family: var(--mono);
   font-size: 11.5px;
 }
+
+/* ---------- identity review ----------
+   One card per request. The photos are the decision, so they get most of the
+   width; the facts to check them against sit beside them, next to the
+   buttons. Under 1180px the facts drop below the photos. */
+.vlist { display: flex; flex-direction: column; gap: 14px; }
+.vcard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.vcard:target { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.vcard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.vcard-status { display: flex; align-items: center; gap: 8px; }
+.vbody { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); }
+.vdocs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+  align-content: start;
+}
+.vdoc { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vdoc a,
+.vdoc-missing {
+  display: block;
+  height: 220px;
+  border-radius: var(--radius-sm);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+/* contain, not cover: cropping the edge of an ID hides the expiry date. */
+.vdoc img { display: block; width: 100%; height: 100%; object-fit: contain; transition: transform 0.15s ease; }
+.vdoc a:hover img { transform: scale(1.03); }
+.vdoc a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.vdoc-missing {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.vdoc figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: var(--t-small);
+  font-weight: 700;
+  color: var(--ink);
+}
+.vdoc figcaption .dim { color: var(--muted); font-weight: 600; }
+.vside {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-left: 1px solid var(--line-soft);
+  background: var(--surface-2);
+}
+.vfacts { margin: 0; display: grid; gap: 9px; }
+.vfacts > div { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 10px; }
+.vfacts dt {
+  padding-top: 2px;
+  font-size: var(--t-micro);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.vfacts dd { margin: 0; font-size: var(--t-body); color: var(--ink); overflow-wrap: anywhere; }
+.vfacts .sub { display: block; font-size: var(--t-small); color: var(--body); }
+.vflag { display: block; font-size: var(--t-small); font-weight: 700; color: var(--warn); }
+.vcheck {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 3px;
+  font-size: var(--t-small);
+  color: var(--body);
+}
+.vdecide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.vdecide form { display: flex; flex-wrap: wrap; gap: 7px; }
+.vdecide select,
+.vdecide input[type='text'] { flex: 1 1 150px; width: auto; min-width: 0; }
+.vdecide .btn.primary { flex: 1; justify-content: center; }
+.vdecide summary { cursor: pointer; }
+.vhint { margin: 0; font-size: var(--t-small); color: var(--muted); }
+
+@media (max-width: 1180px) {
+  .vbody { grid-template-columns: 1fr; }
+  .vside { border-left: none; border-top: 1px solid var(--line-soft); }
+}
+@media (max-width: 640px) {
+  .vdocs { grid-template-columns: 1fr; }
+  .vdoc a, .vdoc-missing { height: 260px; }
+}

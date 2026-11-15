@@ -16,7 +16,7 @@ import {
   LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
-import { getPayouts, getProfiles } from '@/lib/queries';
+import { getPayouts, getProfiles, getVerifications, type VerificationRow } from '@/lib/queries';
 import { hasServiceRole, sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -49,8 +49,27 @@ export default async function PayoutsPage({
   const params = await searchParams;
   const status = params.status ?? 'pending';
 
-  const [payouts, profiles] = await Promise.all([getPayouts(status), getProfiles()]);
+  const [payouts, profiles, verifications] = await Promise.all([
+    getPayouts(status),
+    getProfiles(),
+    getVerifications('all'),
+  ]);
   const people = personIndex(profiles.rows);
+
+  // Payouts are meant to unlock only once an ID is approved, and the app does
+  // not enforce that yet, so this screen has to: who is asking, and has
+  // anybody actually seen their ID?
+  const verified = new Set(profiles.rows.filter((row) => row.verified).map((row) => row.id));
+  const latestRequest = new Map<string, VerificationRow>();
+  for (const row of verifications.rows) latestRequest.set(row.profile_id, row); // oldest first, so the newest wins
+  const approvedId = new Set(
+    verifications.rows.filter((row) => row.status === 'approved').map((row) => row.profile_id)
+  );
+  const unchecked = payouts.rows.filter(
+    (row) =>
+      (row.status === 'pending' || row.status === 'processing') &&
+      !(row.profile_id && verified.has(row.profile_id) && approvedId.has(row.profile_id))
+  );
 
   const queuedTotal = payouts.rows
     .filter((row) => row.status === 'pending' || row.status === 'processing')
@@ -101,6 +120,14 @@ export default async function PayoutsPage({
 
       <LoadError error={payouts.error} what="payouts" keyed={hasServiceRole} />
 
+      {unchecked.length > 0 ? (
+        <Notice
+          tone="warn"
+          title={`${unchecked.length} open ${unchecked.length === 1 ? 'request is' : 'requests are'} from hosts whose ID you have not approved`}>
+          Check the Identity column before you send money. Open their ID from there.
+        </Notice>
+      ) : null}
+
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Metric
           label="Queued value"
@@ -133,7 +160,7 @@ export default async function PayoutsPage({
       </div>
 
       <DataTable
-        head={['Host', 'Amount', 'Send to', 'Requested', 'Status', 'Action']}
+        head={['Host', 'Identity', 'Amount', 'Send to', 'Requested', 'Status', 'Action']}
         placeholder="Search by host name, email or M-Pesa number…"
         noun="request"
         empty={
@@ -158,6 +185,14 @@ export default async function PayoutsPage({
             <tr key={row.id} data-search={haystack}>
               <td>
                 <PersonCell id={row.profile_id} people={people} />
+              </td>
+
+              <td>
+                <Identity
+                  profileId={row.profile_id}
+                  verified={Boolean(row.profile_id && verified.has(row.profile_id))}
+                  request={row.profile_id ? latestRequest.get(row.profile_id) : undefined}
+                />
               </td>
 
               <td className="num">{kes(row.amount_kes)}</td>
@@ -222,5 +257,54 @@ export default async function PayoutsPage({
         })}
       </DataTable>
     </Shell>
+  );
+}
+
+/**
+ * Has anybody seen this host's ID?
+ *
+ * "Verified" alone is not enough: the old app granted the badge to anyone who
+ * finished the form, so a badge with no approved request behind it is shown
+ * as unchecked rather than green.
+ */
+function Identity({
+  profileId,
+  verified,
+  request,
+}: {
+  profileId: string | null;
+  verified: boolean;
+  request: VerificationRow | undefined;
+}) {
+  if (!profileId) return <span className="mono">No account</span>;
+  const href = `/verifications?person=${profileId}`;
+
+  if (verified && request?.status === 'approved') {
+    return (
+      <>
+        <Badge value="ID approved" tone="green" />
+        <div className="mono" style={{ marginTop: 4 }}>
+          <a href={href}>See ID</a>
+        </div>
+      </>
+    );
+  }
+  if (request?.status === 'pending') {
+    return (
+      <>
+        <Badge value="ID waiting" tone="amber" />
+        <div className="mono" style={{ marginTop: 4 }}>
+          <a href={href}>Review it now</a>
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      <Badge value={verified ? 'badge, no ID' : 'not verified'} tone="red" />
+      <div className="mono" style={{ marginTop: 4 }}>
+        {request ? <a href={href}>Last ID {request.status}</a> : 'No ID sent'}
+      </div>
+    </>
   );
 }

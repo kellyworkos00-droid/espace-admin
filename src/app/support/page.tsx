@@ -5,7 +5,7 @@ import { BlockedNotice } from '@/components/blocked-notice';
 import { Shell } from '@/components/shell';
 import { Badge, Empty, LoadError, Metric, PageHead, Table, ago, shortId, when } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
-import { getProfiles, getSupportTickets, supportShotUrl } from '@/lib/queries';
+import { getProfiles, getSupportTickets, signedUrls } from '@/lib/queries';
 import { sb } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +46,11 @@ export default async function SupportPage({
 
   const nameFor = new Map(
     (profiles.rows ?? []).map((person) => [person.id, person.full_name || person.email || null])
+  );
+
+  const shotLinks = await signedUrls(
+    'support-screenshots',
+    (tickets.rows ?? []).flatMap((ticket) => ticket.screenshot_paths ?? [])
   );
 
   async function setStatus(formData: FormData) {
@@ -157,16 +162,23 @@ export default async function SupportPage({
                         <span className="dim">None</span>
                       ) : (
                         <div className="btn-row">
-                          {shots.map((path, index) => (
-                            <a
-                              key={path}
-                              className="btn ghost small"
-                              href={supportShotUrl(path)}
-                              target="_blank"
-                              rel="noreferrer">
-                              {index + 1}
-                            </a>
-                          ))}
+                          {shots.map((path, index) => {
+                            const href = shotLinks.get(path);
+                            return href ? (
+                              <a
+                                key={path}
+                                className="btn ghost small"
+                                href={href}
+                                target="_blank"
+                                rel="noreferrer">
+                                {index + 1}
+                              </a>
+                            ) : (
+                              <span key={path} className="dim">
+                                {index + 1}: no link
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
                     </td>
