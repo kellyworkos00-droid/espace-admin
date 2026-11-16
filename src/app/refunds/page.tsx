@@ -1,3 +1,5 @@
+import { revalidatePath } from 'next/cache';
+
 import { DataTable } from '@/components/data-table';
 import { Shell } from '@/components/shell';
 import {
@@ -14,7 +16,7 @@ import {
   LoadError,
 } from '@/components/ui';
 import { requireAdmin } from '@/lib/auth';
-import { hasServiceRole } from '@/lib/supabase';
+import { hasServiceRole, sb } from '@/lib/supabase';
 import { getBookings, getListings, getPayments, getProfiles } from '@/lib/queries';
 
 export const dynamic = 'force-dynamic';
@@ -51,6 +53,49 @@ export default async function RefundsPage() {
   const listingById = new Map(listings.rows.map((row) => [row.id, row]));
 
   const refunds = payments.rows.filter((row) => row.status === 'refunded');
+
+  /**
+   * Refunds the app has queued and nobody has sent yet.
+   *
+   * The app now queues a refund (refund_status = 'pending') whenever one is
+   * owed: a host declining a paid booking, a request the host never answered
+   * within 24 hours, a cancellation before the host confirmed, a host
+   * cancelling, or a renter's refund request. None of those reached this
+   * console before, so the renter was told "refund requested" and no person
+   * ever saw it.
+   */
+  const queued = bookings.rows
+    .filter((row) => row.refund_status === 'pending')
+    .sort((a, b) => (a.cancelled_at ?? a.created_at).localeCompare(b.cancelled_at ?? b.created_at));
+  const queuedKes = queued.reduce((total, row) => total + Number(row.refund_amount_kes ?? row.amount_kes ?? 0), 0);
+
+  async function markRefunded(formData: FormData) {
+    'use server';
+    const id = String(formData.get('id') ?? '');
+    const reason = String(formData.get('reason') ?? '');
+    if (!id) return;
+    if (reason === 'short_stay_deposit') {
+      // A deposit charged on a BnB by mistake. Recorded through the ledger
+      // function, which writes the refund entry and marks it sent; it moves
+      // no money itself -- a person sends it first.
+      await sb('rpc/ledger_refund_deposit', { method: 'POST', body: { target: id, actor: 'admin' } });
+      revalidatePath('/refunds');
+      return;
+    }
+    // Records that a person sent it, like Mark paid on Payouts. It moves no
+    // money, and it leaves payment_status alone: the escrow ledger has no
+    // refund entry yet, so the payment row keeps saying where the money was.
+    await sb('bookings', { query: `id=eq.${id}`, method: 'PATCH', body: { refund_status: 'issued' } });
+    revalidatePath('/refunds');
+  }
+
+  const whyOwed = (row: (typeof queued)[number]) => {
+    if (row.refund_reason === 'short_stay_deposit') return 'Deposit charged on a BnB (BnBs take no deposit)';
+    if (row.host_declined_reason === 'No reply within 24 hours') return 'Host did not reply in 24h';
+    if (row.request_status === 'declined') return 'Host declined';
+    if (row.request_status === 'cancelled') return row.cancelled_by === 'host' ? 'Host cancelled' : 'Renter cancelled before confirmation';
+    return 'Renter asked for a refund (review first)';
+  };
   const owed = refunds.reduce((total, row) => total + Number(row.amount_kes ?? 0), 0);
 
   // A refund on a payment that never had an escrow behind it is a different
@@ -60,13 +105,70 @@ export default async function RefundsPage() {
   );
 
   return (
-    <Shell badges={{ '/refunds': refunds.length }}>
+    <Shell badges={{ '/refunds': refunds.length + queued.length }}>
       <PageHead
         title="Refunds"
         description="Renters who asked for their money back. None of it has been sent — read the notice below before working this queue."
       />
 
       <LoadError error={payments.error} what="payments" keyed={hasServiceRole} />
+
+      <h2 className="section-title">
+        Waiting to be sent <span className="count">{queued.length}</span>
+      </h2>
+      {queued.length > 0 ? (
+        <Notice tone="warn" title={`${kes(queuedKes)} owed back to renters`}>
+          Send each one from eConfirm to the M-Pesa that paid, then mark it refunded here. A renter&rsquo;s own
+          refund request needs a decision first: read the listing and the messages before sending.
+        </Notice>
+      ) : null}
+      <DataTable
+        head={['Home', 'Renter', 'Amount', 'Why', 'Since', 'Action']}
+        placeholder="Search by home or renter…"
+        noun="refund"
+        empty={
+          <>
+            <strong>Nothing waiting.</strong>
+            Refunds the app queues show up here.
+          </>
+        }>
+        {queued.map((row) => {
+          const listing = row.listing_id ? listingById.get(row.listing_id) : undefined;
+          return (
+            <tr key={row.id} data-search={[listing?.title, personSearch(row.guest_profile_id, people)].filter(Boolean).join(' ')}>
+              <td>
+                <div style={{ fontWeight: 700 }}>{listing?.title ?? 'Listing removed'}</div>
+                <div className="mono">{row.id.slice(0, 8)}</div>
+              </td>
+              <td>
+                <PersonCell id={row.guest_profile_id} people={people} />
+              </td>
+              <td className="num">
+                {kes(row.refund_amount_kes ?? row.amount_kes)}
+                {row.refund_amount_kes != null && row.refund_amount_kes !== row.amount_kes ? (
+                  <div className="mono">of {kes(row.amount_kes)} paid</div>
+                ) : null}
+              </td>
+              <td>{whyOwed(row)}</td>
+              <td className="dim nowrap">
+                <div>{ago(row.cancelled_at ?? row.created_at)}</div>
+                <div className="mono">{when(row.cancelled_at ?? row.created_at)}</div>
+              </td>
+              <td>
+                <form action={markRefunded}>
+                  <input type="hidden" name="id" value={row.id} />
+                  <input type="hidden" name="reason" value={row.refund_reason ?? ''} />
+                  <button className="btn primary small" type="submit">
+                    Mark refunded
+                  </button>
+                </form>
+              </td>
+            </tr>
+          );
+        })}
+      </DataTable>
+
+      <h2 className="section-title">Marked refunded in the app</h2>
 
       {/* The first thing on the screen, because every row below it is a person
           who has been told something untrue -- but only when there is a row.

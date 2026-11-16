@@ -79,6 +79,27 @@ export default async function ListingsPage() {
     revalidatePath('/listings');
   }
 
+  /**
+   * "Photos verified" in the app: somebody here looked at this listing's
+   * photos and they show this property as it is. Only the console can set
+   * it; the app's key is refused (SUPABASE_PHOTO_TOUR.sql).
+   */
+  async function setPhotosVerified(formData: FormData) {
+    'use server';
+
+    const listingId = String(formData.get('listingId') ?? '');
+    const on = String(formData.get('photosVerified') ?? '') === 'true';
+    if (!listingId) return;
+
+    await sb('listings', {
+      query: `id=eq.${listingId}`,
+      method: 'PATCH',
+      body: { photos_verified_at: on ? null : new Date().toISOString() },
+    });
+
+    revalidatePath('/listings');
+  }
+
   async function setVerified(formData: FormData) {
     'use server';
 
@@ -221,6 +242,13 @@ export default async function ListingsPage() {
                       <input type="hidden" name="verified" value={String(Boolean(row.verified))} />
                       <button className="btn ghost small" type="submit">
                         {row.verified ? 'Unverify' : 'Verify'}
+                      </button>
+                    </form>
+                    <form action={setPhotosVerified}>
+                      <input type="hidden" name="listingId" value={row.id} />
+                      <input type="hidden" name="photosVerified" value={String(Boolean(row.photos_verified_at))} />
+                      <button className="btn ghost small" type="submit">
+                        {row.photos_verified_at ? 'Unmark photos' : 'Photos checked'}
                       </button>
                     </form>
                   </div>

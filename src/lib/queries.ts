@@ -51,6 +51,15 @@ export type BookingRow = {
   move_in_date?: string | null;
   checkout_date?: string | null;
   created_at: string;
+  refund_status?: 'none' | 'pending' | 'issued' | null;
+  /** What the listing's cancellation policy said was owed, at cancellation. */
+  refund_amount_kes?: number | null;
+  /** Set when a refund is queued for a reason other than a cancellation, e.g. short_stay_deposit. */
+  refund_reason?: string | null;
+  deposit_kes?: number | null;
+  cancelled_by?: 'tenant' | 'host' | null;
+  cancelled_at?: string | null;
+  host_declined_reason?: string | null;
 };
 
 export type ListingRow = {
@@ -67,6 +76,8 @@ export type ListingRow = {
   is_paused?: boolean | null;
   is_booked?: boolean | null;
   created_at?: string | null;
+  /** Set when somebody here checked the photos. Shown in the app as "Photos verified". */
+  photos_verified_at?: string | null;
 };
 
 export type ProfileRow = {
